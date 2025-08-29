@@ -195,15 +195,58 @@ class _ChatScreenState extends State<ChatScreen> {
                 return Container(
                   padding: const EdgeInsets.all(12),
                   color: Colors.blue.shade50,
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.wifi_find, color: Colors.blue.shade700),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Looking for nearby devices...',
-                          style: TextStyle(color: Colors.blue.shade700),
-                        ),
+                      Row(
+                        children: [
+                          Icon(Icons.wifi_find, color: Colors.blue.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Looking for nearby devices...',
+                              style: TextStyle(
+                                  color: Colors.blue.shade700,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Debug Status:',
+                        style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '✓ Service Started: ${chatService.isStarted}',
+                        style: TextStyle(
+                            color: Colors.blue.shade600, fontSize: 11),
+                      ),
+                      Text(
+                        '✓ User: ${chatService.userName ?? "Unknown"}',
+                        style: TextStyle(
+                            color: Colors.blue.shade600, fontSize: 11),
+                      ),
+                      Text(
+                        '• Advertising your device to nearby phones',
+                        style: TextStyle(
+                            color: Colors.blue.shade600, fontSize: 11),
+                      ),
+                      Text(
+                        '• Scanning for other devices with this app',
+                        style: TextStyle(
+                            color: Colors.blue.shade600, fontSize: 11),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Make sure: Bluetooth ON, Location ON, other devices within 20m with app open',
+                        style: TextStyle(
+                            color: Colors.blue.shade600,
+                            fontSize: 10,
+                            fontStyle: FontStyle.italic),
                       ),
                     ],
                   ),

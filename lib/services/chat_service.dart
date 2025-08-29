@@ -64,7 +64,10 @@ class ChatService extends ChangeNotifier {
     if (!_isInitialized || _isStarted) return;
 
     try {
+      debugPrint('🚀 Starting chat service for user: $_userName');
+
       // Start advertising
+      debugPrint('📡 Starting advertising with service ID: $_serviceId');
       await Nearby().startAdvertising(
         _userName!,
         Strategy.P2P_CLUSTER,
@@ -73,8 +76,10 @@ class ChatService extends ChangeNotifier {
         onDisconnected: _onDisconnected,
         serviceId: _serviceId,
       );
+      debugPrint('✅ Advertising started successfully');
 
       // Start discovery
+      debugPrint('🔍 Starting discovery for nearby devices');
       await Nearby().startDiscovery(
         _userName!,
         Strategy.P2P_CLUSTER,
@@ -82,15 +87,17 @@ class ChatService extends ChangeNotifier {
         onEndpointLost: _onEndpointLost,
         serviceId: _serviceId,
       );
+      debugPrint('✅ Discovery started successfully');
 
       _isStarted = true;
 
       // Send join message
       await _sendJoinMessage();
+      debugPrint('✅ Chat service fully started and ready');
 
       notifyListeners();
     } catch (e) {
-      debugPrint('Error starting chat service: $e');
+      debugPrint('❌ Error starting chat service: $e');
       throw Exception('Failed to start chat service: $e');
     }
   }
@@ -148,34 +155,37 @@ class ChatService extends ChangeNotifier {
   }
 
   void _onConnectionInitiated(String id, ConnectionInfo info) {
-    debugPrint('Connection initiated with $id: ${info.endpointName}');
+    debugPrint('🤝 Connection initiated with $id: ${info.endpointName}');
     // Auto-accept all connections for simplicity
     Nearby().acceptConnection(
       id,
       onPayLoadRecieved: _onPayloadReceived,
       onPayloadTransferUpdate: _onPayloadTransferUpdate,
     );
+    debugPrint('✅ Auto-accepted connection with $id');
   }
 
   void _onConnectionResult(String id, Status status) {
-    debugPrint('Connection result for $id: $status');
+    debugPrint('🔗 Connection result for $id: $status');
     if (status == Status.CONNECTED) {
       // Connection successful - peer will be added when they send join message
-      debugPrint('Successfully connected to peer $id');
+      debugPrint('🎉 Successfully connected to peer $id');
     } else {
       // Connection failed
+      debugPrint('❌ Connection failed with $id: $status');
       _removePeer(id);
     }
   }
 
   void _onDisconnected(String id) {
-    debugPrint('Disconnected from peer $id');
+    debugPrint('💔 Disconnected from peer $id');
     _removePeer(id);
   }
 
   void _onEndpointFound(String id, String name, String serviceId) {
-    debugPrint('Found endpoint $id: $name');
+    debugPrint('🎯 FOUND DEVICE! ID: $id, Name: $name, Service: $serviceId');
     // Request connection when we find an endpoint
+    debugPrint('📞 Requesting connection to $name ($id)');
     Nearby().requestConnection(
       _userName!,
       id,
@@ -187,7 +197,7 @@ class ChatService extends ChangeNotifier {
 
   void _onEndpointLost(String? id) {
     if (id != null) {
-      debugPrint('Lost endpoint $id');
+      debugPrint('📤 Lost endpoint $id');
       _removePeer(id);
     }
   }
