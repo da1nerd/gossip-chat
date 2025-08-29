@@ -82,7 +82,17 @@ class _NameInputScreenState extends State<NameInputScreen> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        if (e.toString().contains('permissions')) {
+          _errorMessage =
+              'Please enable Location and Bluetooth permissions in Settings, then try again.';
+        } else if (e.toString().contains('location')) {
+          _errorMessage = 'Please enable Location services and try again.';
+        } else if (e.toString().contains('bluetooth')) {
+          _errorMessage = 'Please enable Bluetooth and try again.';
+        } else {
+          _errorMessage =
+              'Failed to start: ${e.toString().replaceAll('Exception: ', '')}';
+        }
       });
     }
   }
@@ -205,16 +215,57 @@ class _NameInputScreenState extends State<NameInputScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Make sure location and bluetooth are enabled for the best experience. The app will automatically discover and connect to nearby devices.',
+                      'Requirements for peer-to-peer chat:',
                       style: TextStyle(
                         color: Colors.blue.shade700,
                         fontSize: 14,
+                        fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '• Enable Location services\n• Enable Bluetooth\n• Grant app permissions\n• Have other devices nearby with the app open',
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.left,
                     ),
                   ],
                 ),
               ),
+
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red.shade700,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

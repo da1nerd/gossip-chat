@@ -12,6 +12,9 @@ dependencies:
   cupertino_icons: ^1.0.2
 
   nearby_connections: ^4.3.0
+  permission_handler: ^11.3.1
+  location: ^5.0.3
+  device_info_plus: ^9.1.0
   uuid: ^4.0.0
   shared_preferences: ^2.2.2
   provider: ^6.1.1
