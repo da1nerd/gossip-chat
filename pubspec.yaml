@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
 
+  gossip:
+    path: ../gossip
   nearby_connections: ^4.3.0
   permission_handler: ^11.3.1
   location: ^5.0.3
