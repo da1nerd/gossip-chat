@@ -56,17 +56,28 @@ class PermissionsService {
       Map<ph.Permission, ph.PermissionStatus> results =
           await permissionsToRequest.request();
 
-      // Check if all required permissions are granted
+      // Check if required permissions are granted (be more forgiving with optional ones)
       bool allGranted = true;
+      List<ph.Permission> criticalPermissions = [
+        ph.Permission.locationWhenInUse,
+        ph.Permission.location,
+        ph.Permission.bluetooth,
+        ph.Permission.bluetoothAdvertise,
+        ph.Permission.bluetoothConnect,
+        ph.Permission.bluetoothScan,
+      ];
+
       for (var permission in permissionsToRequest) {
         final status = results[permission] ?? ph.PermissionStatus.denied;
         if (status != ph.PermissionStatus.granted) {
-          if (permission == ph.Permission.storage) {
-            // Storage is optional, so we can continue without it
-            continue;
+          // Only fail for critical permissions
+          if (criticalPermissions.contains(permission)) {
+            allGranted = false;
+            print('Critical permission $permission was denied');
+          } else {
+            print(
+                'Optional permission $permission was denied (continuing anyway)');
           }
-          allGranted = false;
-          print('Permission $permission was denied');
         }
       }
 
@@ -137,12 +148,29 @@ class PermissionsService {
         ]);
       }
 
-      // Check all required permissions
+      // Check all required permissions (be more forgiving)
+      bool hasLocationPermission = false;
+      bool hasBluetoothPermission = false;
+
       for (var permission in requiredPermissions) {
         final status = await permission.status;
-        if (status != ph.PermissionStatus.granted) {
-          return false;
+        if (status == ph.PermissionStatus.granted) {
+          if (permission == ph.Permission.locationWhenInUse ||
+              permission == ph.Permission.location) {
+            hasLocationPermission = true;
+          }
+          if (permission == ph.Permission.bluetooth ||
+              permission == ph.Permission.bluetoothAdvertise ||
+              permission == ph.Permission.bluetoothConnect ||
+              permission == ph.Permission.bluetoothScan) {
+            hasBluetoothPermission = true;
+          }
         }
+      }
+
+      // Need at least one location permission and one bluetooth permission
+      if (!hasLocationPermission || !hasBluetoothPermission) {
+        return false;
       }
 
       // Check location service
