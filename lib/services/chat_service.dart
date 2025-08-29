@@ -156,6 +156,8 @@ class ChatService extends ChangeNotifier {
 
   void _onConnectionInitiated(String id, ConnectionInfo info) {
     debugPrint('🤝 Connection initiated with $id: ${info.endpointName}');
+    debugPrint(
+        '📝 Connection info - IsIncomingConnection: ${info.isIncomingConnection}');
     // Auto-accept all connections for simplicity
     Nearby().acceptConnection(
       id,
@@ -170,6 +172,15 @@ class ChatService extends ChangeNotifier {
     if (status == Status.CONNECTED) {
       // Connection successful - peer will be added when they send join message
       debugPrint('🎉 Successfully connected to peer $id');
+
+      // Create a temporary peer to show connection
+      final tempPeer = ChatPeer(
+        id: id,
+        name: 'Connected Device ($id)',
+        status: ChatPeerStatus.connected,
+      );
+      _addPeer(tempPeer);
+      debugPrint('👥 Added temporary peer to list: $id');
     } else {
       // Connection failed
       debugPrint('❌ Connection failed with $id: $status');
@@ -179,7 +190,9 @@ class ChatService extends ChangeNotifier {
 
   void _onDisconnected(String id) {
     debugPrint('💔 Disconnected from peer $id');
+    debugPrint('👥 Current peers before removal: ${_peers.length}');
     _removePeer(id);
+    debugPrint('👥 Current peers after removal: ${_peers.length}');
   }
 
   void _onEndpointFound(String id, String name, String serviceId) {
@@ -303,7 +316,11 @@ class ChatService extends ChangeNotifier {
     if (!_peers.containsKey(peer.id)) {
       _peers[peer.id] = peer;
       _peerJoinedController.add(peer);
+      debugPrint(
+          '➕ Added peer: ${peer.name} (${peer.id}) - Total peers: ${_peers.length}');
       notifyListeners();
+    } else {
+      debugPrint('⚠️ Peer ${peer.id} already exists, not adding again');
     }
   }
 
@@ -311,7 +328,11 @@ class ChatService extends ChangeNotifier {
     final peer = _peers.remove(peerId);
     if (peer != null) {
       _peerLeftController.add(peer);
+      debugPrint(
+          '➖ Removed peer: ${peer.name} (${peer.id}) - Total peers: ${_peers.length}');
       notifyListeners();
+    } else {
+      debugPrint('⚠️ Tried to remove peer $peerId but it was not found');
     }
   }
 

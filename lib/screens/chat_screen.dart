@@ -93,7 +93,7 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 const Text('Gossip Chat'),
                 Text(
-                  '${chatService.peers.length} peer${chatService.peers.length != 1 ? 's' : ''} connected',
+                  '${chatService.peers.length} peer${chatService.peers.length != 1 ? 's' : ''} connected (Debug: ${chatService.isStarted ? "Started" : "Stopped"})',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white70,
                       ),
@@ -230,6 +230,17 @@ class _ChatScreenState extends State<ChatScreen> {
                         style: TextStyle(
                             color: Colors.blue.shade600, fontSize: 11),
                       ),
+                      Text(
+                        '✓ Peers Found: ${chatService.peers.length}',
+                        style: TextStyle(
+                            color: Colors.blue.shade600, fontSize: 11),
+                      ),
+                      if (chatService.peers.isNotEmpty)
+                        ...chatService.peers.map((peer) => Text(
+                              '  - ${peer.name} (${peer.status.name})',
+                              style: TextStyle(
+                                  color: Colors.blue.shade600, fontSize: 10),
+                            )),
                       Text(
                         '• Advertising your device to nearby phones',
                         style: TextStyle(
