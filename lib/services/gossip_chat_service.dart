@@ -117,7 +117,11 @@ class GossipChatService extends ChangeNotifier {
 
       _isStarted = true;
 
-      // Send join event
+      // Wait for peer connections to stabilize before sending join event
+      // TODO: it would be better to send the join event after we get our first peer.
+      await _waitForConnectionStabilization();
+
+      // Send join event after connections are stable
       await _sendJoinEvent();
       debugPrint('📤 Join event sent');
 
@@ -217,7 +221,8 @@ class GossipChatService extends ChangeNotifier {
     // Listen for peer changes from the transport
     _gossipNode!.onPeerJoined.listen((peerId) {
       debugPrint('👋 Peer joined: $peerId');
-      // We'll get the actual user info from their join event
+      // Re-send our join event to newly connected peers so they know we're here
+      _sendJoinEventToPeer(peerId);
     });
 
     _gossipNode!.onPeerLeft.listen((peerId) {
@@ -270,20 +275,26 @@ class GossipChatService extends ChangeNotifier {
         status: ChatPeerStatus.connected,
       );
 
+      // Check if this is a new peer (not a duplicate join event)
+      final isNewPeer = !_peers.containsKey(peer.id);
       _addPeer(peer);
 
-      // Add system message
-      final joinMessage = ChatMessage(
-        senderId: 'system',
-        senderName: 'System',
-        content: '${event.userName} joined the chat',
-        type: ChatMessageType.userJoined,
-      );
-      _messages.add(joinMessage);
-      _messageController.add(joinMessage);
-      notifyListeners();
+      // Only add system message for genuinely new peers
+      if (isNewPeer) {
+        final joinMessage = ChatMessage(
+          senderId: 'system',
+          senderName: 'System',
+          content: '${event.userName} joined the chat',
+          type: ChatMessageType.userJoined,
+        );
+        _messages.add(joinMessage);
+        _messageController.add(joinMessage);
+        notifyListeners();
 
-      debugPrint('👋 User joined: ${event.userName} (${event.userId})');
+        debugPrint('👋 User joined: ${event.userName} (${event.userId})');
+      } else {
+        debugPrint('🔄 Received duplicate join event for: ${event.userName} (${event.userId})');
+      }
     } catch (e) {
       debugPrint('❌ Error handling user joined event: $e');
     }
@@ -358,6 +369,67 @@ class GossipChatService extends ChangeNotifier {
       debugPrint('📤 Sent leave event for $_userName');
     } catch (e) {
       debugPrint('❌ Failed to send leave event: $e');
+    }
+  }
+
+  /// Wait for peer connections to stabilize before sending join event.
+  /// This ensures that when we broadcast the join event, we're properly
+  /// connected to other peers who can receive it.
+  Future<void> _waitForConnectionStabilization() async {
+    debugPrint('⏳ Waiting for peer connections to stabilize...');
+
+    // Initial delay to allow transport to start discovering peers
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Check if we have any peers and wait for connection stability
+    int stableConnectionCount = 0;
+    int lastPeerCount = 0;
+    const int requiredStableChecks = 3; // Number of stable checks required
+    const Duration checkInterval = Duration(milliseconds: 500);
+    const Duration maxWaitTime = Duration(seconds: 5);
+
+    final stopwatch = Stopwatch()..start();
+
+    while (stableConnectionCount < requiredStableChecks &&
+           stopwatch.elapsed < maxWaitTime) {
+      final currentPeerCount = _gossipNode?.connectedPeers.length ?? 0;
+
+      if (currentPeerCount == lastPeerCount) {
+        stableConnectionCount++;
+        debugPrint('🔗 Peer count stable: $currentPeerCount (check $stableConnectionCount/$requiredStableChecks)');
+      } else {
+        stableConnectionCount = 0; // Reset if peer count changed
+        debugPrint('🔄 Peer count changed: $lastPeerCount → $currentPeerCount');
+      }
+
+      lastPeerCount = currentPeerCount;
+
+      if (stableConnectionCount < requiredStableChecks) {
+        await Future.delayed(checkInterval);
+      }
+    }
+
+    final finalPeerCount = _gossipNode?.connectedPeers.length ?? 0;
+    debugPrint('✅ Connection stabilization complete. Connected to $finalPeerCount peer(s)');
+  }
+
+  /// Send join event to a specific newly connected peer
+  Future<void> _sendJoinEventToPeer(String peerId) async {
+    if (!_isStarted) return;
+
+    try {
+      // Small delay to ensure the peer connection is fully established
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      final joinEvent = UserJoinedEvent(
+        userId: _userId!,
+        userName: _userName!,
+      );
+
+      await _gossipNode!.broadcastTypedEvent(joinEvent);
+      debugPrint('📤 Re-sent join event to newly connected peer: $peerId');
+    } catch (e) {
+      debugPrint('❌ Failed to send join event to peer $peerId: $e');
     }
   }
 
