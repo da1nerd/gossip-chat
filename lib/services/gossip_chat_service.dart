@@ -3,60 +3,11 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:gossip/gossip.dart';
+import 'package:gossip_chat_demo/models/chat_message.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import 'nearby_connections_transport.dart';
-
-/// Represents a chat message in the gossip chat system.
-class ChatMessage {
-  final String id;
-  final String senderId;
-  final String senderName;
-  final String content;
-  final DateTime timestamp;
-  final String? replyToId;
-
-  const ChatMessage({
-    required this.id,
-    required this.senderId,
-    required this.senderName,
-    required this.content,
-    required this.timestamp,
-    this.replyToId,
-  });
-
-  factory ChatMessage.fromEvent(Event event) {
-    final payload = event.payload;
-    return ChatMessage(
-      id: event.id,
-      senderId: event.nodeId,
-      senderName: payload['senderName'] as String,
-      content: payload['content'] as String,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(
-        payload['timestamp'] as int,
-      ),
-      replyToId: payload['replyToId'] as String?,
-    );
-  }
-
-  Map<String, dynamic> toEventPayload() {
-    return {
-      'type': 'chat_message',
-      'senderName': senderName,
-      'content': content,
-      'timestamp': timestamp.millisecondsSinceEpoch,
-      if (replyToId != null) 'replyToId': replyToId,
-    };
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is ChatMessage && other.id == id;
-  }
-
-  @override
-  int get hashCode => id.hashCode;
-}
 
 /// Represents a user in the chat system.
 class ChatUser {
@@ -101,10 +52,12 @@ class ChatUser {
 /// This service provides a clean, type-safe interface for chat functionality
 /// using the gossip protocol for event synchronization across devices.
 class GossipChatService extends ChangeNotifier {
+  static const String _userNameKey = 'user_name';
+  static const String _userIdKey = 'user_id';
   static const String _serviceId = 'gossip_chat_demo';
 
-  final String _userId;
-  final String _userName;
+  String? _userId;
+  String? _userName;
   late final NearbyConnectionsTransport _transport;
   late final GossipNode _gossipNode;
 
@@ -121,25 +74,24 @@ class GossipChatService extends ChangeNotifier {
   bool _isStarted = false;
   String? _error;
 
-  GossipChatService({
-    required String userId,
-    required String userName,
-  })  : _userId = userId,
-        _userName = userName {
-    _initializeComponents();
-  }
+  GossipChatService();
 
   void _initializeComponents() {
+    if (_userId == null || _userName == null) {
+      throw StateError(
+          'User ID and name must be set before initializing components');
+    }
+
     // Create transport
     _transport = NearbyConnectionsTransport(
       serviceId: _serviceId,
-      userName: _userName,
-      nodeId: _userId,
+      userName: _userName!,
+      nodeId: _userId!,
     );
 
     // Create gossip node with chat-optimized configuration
     final config = GossipConfig(
-      nodeId: _userId,
+      nodeId: _userId!,
       gossipInterval: const Duration(seconds: 2),
       fanout: 3,
       gossipTimeout: const Duration(seconds: 8),
@@ -155,11 +107,34 @@ class GossipChatService extends ChangeNotifier {
     );
 
     // Add ourselves as a user
-    _users[_userId] = ChatUser(
-      id: _userId,
-      name: _userName,
+    _users[_userId!] = ChatUser(
+      id: _userId!,
+      name: _userName!,
       isOnline: true,
     );
+  }
+
+  /// Set the user ID for this chat service.
+  void setUserId(String userId) {
+    if (_isInitialized) {
+      throw StateError('Cannot change user ID after service is initialized');
+    }
+    _userId = userId;
+    notifyListeners();
+  }
+
+  /// Set the user name for this chat service.
+  Future<void> setUserName(String userName) async {
+    if (_isInitialized) {
+      throw StateError('Cannot change user name after service is initialized');
+    }
+
+    _userName = userName.trim();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userNameKey, _userName!);
+
+    debugPrint('✅ Username set to: $_userName');
+    notifyListeners();
   }
 
   /// Initialize the chat service.
@@ -167,9 +142,16 @@ class GossipChatService extends ChangeNotifier {
     if (_isInitialized) return;
 
     try {
-      debugPrint('🚀 Initializing GossipChatService for $_userName');
+      debugPrint('🚀 Initializing GossipChatService...');
+
+      // Load or generate user info first
+      await _loadUserInfo();
+      debugPrint('✅ User info loaded: $_userName ($_userId)');
 
       _error = null;
+
+      // Initialize components now that we have user info
+      _initializeComponents();
 
       // Set up event listeners before starting the node
       _setupEventListeners();
@@ -387,8 +369,8 @@ class GossipChatService extends ChangeNotifier {
     try {
       final payload = {
         'type': 'user_presence',
-        'userId': _userId,
-        'userName': _userName,
+        'userId': _userId!,
+        'userName': _userName!,
         'isOnline': !isLeaving,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       };
@@ -412,12 +394,12 @@ class GossipChatService extends ChangeNotifier {
 
     try {
       final messageId =
-          '${_userId}_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
+          '${_userId!}_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
 
       final message = ChatMessage(
         id: messageId,
-        senderId: _userId,
-        senderName: _userName,
+        senderId: _userId!,
+        senderName: _userName!,
         content: content.trim(),
         timestamp: DateTime.now(),
         replyToId: replyToId,
@@ -445,7 +427,13 @@ class GossipChatService extends ChangeNotifier {
       _users.values.where((user) => user.isOnline).toList();
 
   /// Get the current user.
-  ChatUser get currentUser => _users[_userId]!;
+  ChatUser get currentUser => _users[_userId!]!;
+
+  /// Get the current user ID.
+  String? get userId => _userId;
+
+  /// Get the current user name.
+  String? get userName => _userName;
 
   /// Whether the service is initialized.
   bool get isInitialized => _isInitialized;
@@ -517,6 +505,22 @@ class GossipChatService extends ChangeNotifier {
   /// Get messages that are replies to a specific message.
   List<ChatMessage> getRepliesTo(String messageId) {
     return _messages.where((m) => m.replyToId == messageId).toList();
+  }
+
+  Future<void> _loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    _userName = prefs.getString(_userNameKey);
+    _userId = prefs.getString(_userIdKey);
+
+    // Generate new user ID if none exists
+    if (_userId == null) {
+      _userId = const Uuid().v4();
+      await prefs.setString(_userIdKey, _userId!);
+      debugPrint('🆔 Generated new user ID: $_userId');
+    }
+
+    debugPrint('👤 Loaded user: $_userName ($_userId)');
   }
 
   @override

@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/chat_events.dart';
-import '../models/chat_message.dart';
+import '../models/simple_chat_message.dart';
 import '../models/chat_peer.dart';
 import 'simple_nearby_connections_transport.dart';
 import 'permissions_service.dart';
@@ -26,13 +26,13 @@ class SimpleGossipChatService extends ChangeNotifier {
   String? _userName;
   String? _userId;
 
-  final List<ChatMessage> _messages = [];
+  final List<SimpleChatMessage> _messages = [];
   final Map<String, ChatPeer> _peers = {};
   bool _isInitialized = false;
   bool _isStarted = false;
   bool _enableHistoricalSync = true; // Enable historical sync by default
 
-  final StreamController<ChatMessage> _messageController =
+  final StreamController<SimpleChatMessage> _messageController =
       StreamController.broadcast();
   final StreamController<ChatPeer> _peerJoinedController =
       StreamController.broadcast();
@@ -40,7 +40,7 @@ class SimpleGossipChatService extends ChangeNotifier {
       StreamController.broadcast();
 
   // Getters
-  List<ChatMessage> get messages => List.unmodifiable(_messages);
+  List<SimpleChatMessage> get messages => List.unmodifiable(_messages);
   List<ChatPeer> get peers => List.unmodifiable(_peers.values);
   String? get userName => _userName;
   String? get userId => _userId;
@@ -49,7 +49,7 @@ class SimpleGossipChatService extends ChangeNotifier {
   bool get enableHistoricalSync => _enableHistoricalSync;
 
   // Streams
-  Stream<ChatMessage> get onMessageReceived => _messageController.stream;
+  Stream<SimpleChatMessage> get onMessageReceived => _messageController.stream;
   Stream<ChatPeer> get onPeerJoined => _peerJoinedController.stream;
   Stream<ChatPeer> get onPeerLeft => _peerLeftController.stream;
 
@@ -178,7 +178,7 @@ class SimpleGossipChatService extends ChangeNotifier {
       await _gossipNode!.broadcastTypedEvent(messageEvent);
 
       // Add to local messages immediately for better UX
-      final localMessage = ChatMessage(
+      final localMessage = SimpleChatMessage(
         id: '${_userId!}_${DateTime.now().millisecondsSinceEpoch}',
         senderId: _userId!,
         senderName: _userName!,
@@ -296,7 +296,7 @@ class SimpleGossipChatService extends ChangeNotifier {
         return;
       }
 
-      final message = ChatMessage(
+      final message = SimpleChatMessage(
         id: '${event.senderId}_${event.timestamp.millisecondsSinceEpoch}',
         senderId: event.senderId,
         senderName: event.senderName,
@@ -334,7 +334,7 @@ class SimpleGossipChatService extends ChangeNotifier {
 
       // Only add system message for genuinely new peers
       if (isNewPeer) {
-        final joinMessage = ChatMessage(
+        final joinMessage = SimpleChatMessage(
           senderId: 'system',
           senderName: 'System',
           content: '${event.userName} joined the chat',
@@ -359,7 +359,7 @@ class SimpleGossipChatService extends ChangeNotifier {
       _removePeer(event.userId);
 
       // Add system message
-      final leaveMessage = ChatMessage(
+      final leaveMessage = SimpleChatMessage(
         senderId: 'system',
         senderName: 'System',
         content: '${event.userName} left the chat',

@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 
-import '../models/chat_message.dart';
+import '../models/simple_chat_message.dart';
 import '../models/chat_peer.dart';
 import 'permissions_service.dart';
 
@@ -19,12 +19,12 @@ class ChatService extends ChangeNotifier {
   String? _userName;
   String? _userId;
 
-  final List<ChatMessage> _messages = [];
+  final List<SimpleChatMessage> _messages = [];
   final Map<String, ChatPeer> _peers = {};
   bool _isInitialized = false;
   bool _isStarted = false;
 
-  final StreamController<ChatMessage> _messageController =
+  final StreamController<SimpleChatMessage> _messageController =
       StreamController.broadcast();
   final StreamController<ChatPeer> _peerJoinedController =
       StreamController.broadcast();
@@ -32,7 +32,7 @@ class ChatService extends ChangeNotifier {
       StreamController.broadcast();
 
   // Getters
-  List<ChatMessage> get messages => List.unmodifiable(_messages);
+  List<SimpleChatMessage> get messages => List.unmodifiable(_messages);
   List<ChatPeer> get peers => List.unmodifiable(_peers.values);
   String? get userName => _userName;
   String? get userId => _userId;
@@ -40,7 +40,7 @@ class ChatService extends ChangeNotifier {
   bool get isStarted => _isStarted;
 
   // Streams
-  Stream<ChatMessage> get onMessageReceived => _messageController.stream;
+  Stream<SimpleChatMessage> get onMessageReceived => _messageController.stream;
   Stream<ChatPeer> get onPeerJoined => _peerJoinedController.stream;
   Stream<ChatPeer> get onPeerLeft => _peerLeftController.stream;
 
@@ -126,7 +126,7 @@ class ChatService extends ChangeNotifier {
   Future<void> sendMessage(String content) async {
     if (!_isStarted || content.trim().isEmpty) return;
 
-    final message = ChatMessage(
+    final message = SimpleChatMessage(
       senderId: _userId!,
       senderName: _userName!,
       content: content.trim(),
@@ -251,7 +251,7 @@ class ChatService extends ChangeNotifier {
 
   void _handleChatMessage(Map<String, dynamic> data) {
     try {
-      final message = ChatMessage.fromJson(data);
+      final message = SimpleChatMessage.fromJson(data);
 
       // Don't add our own messages again
       if (message.senderId == _userId) return;
@@ -278,7 +278,7 @@ class ChatService extends ChangeNotifier {
       _addPeer(peer);
 
       // Add system message
-      final joinMessage = ChatMessage(
+      final joinMessage = SimpleChatMessage(
         senderId: 'system',
         senderName: 'System',
         content: '${peer.name} joined the chat',
@@ -299,7 +299,7 @@ class ChatService extends ChangeNotifier {
       _removePeer(peer.id);
 
       // Add system message
-      final leaveMessage = ChatMessage(
+      final leaveMessage = SimpleChatMessage(
         senderId: 'system',
         senderName: 'System',
         content: '${peer.name} left the chat',

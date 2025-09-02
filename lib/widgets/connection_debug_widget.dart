@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gossip_chat_demo/services/gossip_chat_service.dart';
 import 'package:provider/provider.dart';
 import '../services/simple_gossip_chat_service.dart';
 
@@ -16,10 +17,10 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SimpleGossipChatService>(
+    return Consumer<GossipChatService>(
       builder: (context, chatService, child) {
-        final stats = chatService.connectionStats;
-        final peerCount = chatService.peers.length;
+        final stats = chatService.getConnectionStats();
+        final peerCount = chatService.connectedPeerCount;
 
         return Card(
           margin: const EdgeInsets.all(8.0),
@@ -48,7 +49,7 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
   }
 
   Widget _buildDetailedInfo(
-      Map<String, dynamic> stats, SimpleGossipChatService chatService) {
+      Map<String, dynamic> stats, GossipChatService chatService) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -69,20 +70,6 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
           _buildInfoRow(
               'Total Messages', chatService.messages.length.toString()),
           const Divider(),
-          // Historical Sync Section
-          Row(
-            children: [
-              const Text('Historical Sync:',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(width: 8),
-              Switch(
-                value: chatService.enableHistoricalSync,
-                onChanged: (value) =>
-                    chatService.setHistoricalSyncEnabled(value),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ],
-          ),
           const SizedBox(height: 8),
           if (stats['peerIds'] != null &&
               (stats['peerIds'] as List).isNotEmpty) ...[
@@ -123,36 +110,6 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
                 icon: const Icon(Icons.info),
                 label: const Text('Details'),
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Historical Sync Controls
-          Row(
-            children: [
-              ElevatedButton.icon(
-                onPressed: chatService.peers.isEmpty
-                    ? null
-                    : () => _syncHistoricalEvents(chatService),
-                icon: const Icon(Icons.sync),
-                label: const Text('Sync History'),
-              ),
-              const SizedBox(width: 8),
-              if (chatService.peers.isNotEmpty)
-                PopupMenuButton<String>(
-                  onSelected: (peerId) =>
-                      _syncHistoricalEventsToPeer(chatService, peerId),
-                  itemBuilder: (context) => chatService.peers
-                      .map((peer) => PopupMenuItem<String>(
-                            value: peer.id,
-                            child: Text('Sync to ${peer.name}'),
-                          ))
-                      .toList(),
-                  child: ElevatedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.sync_alt),
-                    label: const Text('Sync to...'),
-                  ),
-                ),
             ],
           ),
         ],
@@ -210,7 +167,7 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
     setState(() {});
   }
 
-  void _showDetailedLog(SimpleGossipChatService chatService) {
+  void _showDetailedLog(GossipChatService chatService) {
     // This would show a detailed log dialog - you can implement based on your needs
     showDialog(
       context: context,
@@ -230,13 +187,13 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
                 style: const TextStyle(fontFamily: 'monospace'),
               ),
               const SizedBox(height: 16),
-              Text(
-                'Chat Peers: ${chatService.peers.length}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              ...chatService.peers.map((peer) => Text(
-                  '• ${peer.name} (${peer.id})',
-                  style: const TextStyle(fontFamily: 'monospace'))),
+              // Text(
+              //   'Chat Peers: ${chatService.connectedPeerCount}',
+              //   style: const TextStyle(fontWeight: FontWeight.bold),
+              // ),
+              // ...chatService.peers.map((peer) => Text(
+              //     '• ${peer.name} (${peer.id})',
+              //     style: const TextStyle(fontFamily: 'monospace'))),
               const SizedBox(height: 16),
               const Text(
                 'Tips for Multi-Device Connections:',
@@ -259,66 +216,6 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
         ],
       ),
     );
-  }
-
-  Future<void> _syncHistoricalEvents(SimpleGossipChatService chatService) async {
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('📚 Syncing historical events to all peers...'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      await chatService.syncHistoricalEventsToAllPeers();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Historical sync completed for all peers'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Historical sync failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _syncHistoricalEventsToPeer(
-      SimpleGossipChatService chatService, String peerId) async {
-    final peer = chatService.peers.firstWhere((p) => p.id == peerId);
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('📚 Syncing historical events to ${peer.name}...'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      await chatService.syncHistoricalEventsToPeer(peerId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Historical sync completed for ${peer.name}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Historical sync failed for ${peer.name}: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 }
 

@@ -1,87 +1,53 @@
-import 'package:uuid/uuid.dart';
+import 'package:gossip/gossip.dart';
 
+/// Represents a chat message in the gossip chat system.
 class ChatMessage {
   final String id;
   final String senderId;
   final String senderName;
   final String content;
   final DateTime timestamp;
-  final ChatMessageType type;
+  final String? replyToId;
 
-  ChatMessage({
-    String? id,
+  const ChatMessage({
+    required this.id,
     required this.senderId,
     required this.senderName,
     required this.content,
-    DateTime? timestamp,
-    this.type = ChatMessageType.text,
-  })  : id = id ?? const Uuid().v4(),
-        timestamp = timestamp ?? DateTime.now();
+    required this.timestamp,
+    this.replyToId,
+  });
 
-  // Create from JSON (for Gossip event payload)
-  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+  factory ChatMessage.fromEvent(Event event) {
+    final payload = event.payload;
     return ChatMessage(
-      id: json['id'] as String,
-      senderId: json['senderId'] as String,
-      senderName: json['senderName'] as String,
-      content: json['content'] as String,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(json['timestamp'] as int),
-      type: ChatMessageType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => ChatMessageType.text,
+      id: event.id,
+      senderId: event.nodeId,
+      senderName: payload['senderName'] as String,
+      content: payload['content'] as String,
+      timestamp: DateTime.fromMillisecondsSinceEpoch(
+        payload['timestamp'] as int,
       ),
+      replyToId: payload['replyToId'] as String?,
     );
   }
 
-  // Convert to JSON (for Gossip event payload)
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toEventPayload() {
     return {
-      'id': id,
-      'senderId': senderId,
+      'type': 'chat_message',
       'senderName': senderName,
       'content': content,
       'timestamp': timestamp.millisecondsSinceEpoch,
-      'type': type.name,
+      if (replyToId != null) 'replyToId': replyToId,
     };
   }
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is ChatMessage &&
-          runtimeType == other.runtimeType &&
-          id == other.id;
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChatMessage && other.id == id;
+  }
 
   @override
   int get hashCode => id.hashCode;
-
-  @override
-  String toString() {
-    return 'ChatMessage{id: $id, senderId: $senderId, senderName: $senderName, content: $content, timestamp: $timestamp, type: $type}';
-  }
-
-  ChatMessage copyWith({
-    String? id,
-    String? senderId,
-    String? senderName,
-    String? content,
-    DateTime? timestamp,
-    ChatMessageType? type,
-  }) {
-    return ChatMessage(
-      id: id ?? this.id,
-      senderId: senderId ?? this.senderId,
-      senderName: senderName ?? this.senderName,
-      content: content ?? this.content,
-      timestamp: timestamp ?? this.timestamp,
-      type: type ?? this.type,
-    );
-  }
-}
-
-enum ChatMessageType {
-  text,
-  userJoined,
-  userLeft,
-  system,
 }

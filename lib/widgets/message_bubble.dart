@@ -15,12 +15,8 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (message.type == ChatMessageType.system ||
-        message.type == ChatMessageType.userJoined ||
-        message.type == ChatMessageType.userLeft) {
-      return _buildSystemMessage(context);
-    }
-
+    // Since ChatMessage doesn't have a type field, we'll always build text messages
+    // System messages can be handled separately if needed in the future
     return _buildTextMessage(context);
   }
 

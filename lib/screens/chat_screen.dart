@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:gossip_chat_demo/services/gossip_chat_service.dart';
 import 'package:gossip_chat_demo/widgets/connection_debug_widget.dart';
 import 'package:provider/provider.dart';
-
-import '../services/simple_gossip_chat_service.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/peer_list_drawer.dart';
 
@@ -39,7 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final chatService = Provider.of<SimpleGossipChatService>(context, listen: false);
+      final chatService = Provider.of<GossipChatService>(context, listen: false);
       if (!chatService.isStarted) {
         await chatService.start();
       }
@@ -65,7 +64,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final content = _messageController.text.trim();
     if (content.isEmpty) return;
 
-    final chatService = Provider.of<SimpleGossipChatService>(context, listen: false);
+    final chatService = Provider.of<GossipChatService>(context, listen: false);
     chatService.sendMessage(content);
     _messageController.clear();
     _scrollToBottom();
@@ -87,14 +86,14 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Consumer<SimpleGossipChatService>(
+        title: Consumer<GossipChatService>(
           builder: (context, chatService, child) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Gossip Chat'),
                 Text(
-                  '${chatService.peers.length} peer${chatService.peers.length != 1 ? 's' : ''} connected (Debug: ${chatService.isStarted ? "Started" : "Stopped"})',
+                  '${chatService.connectedPeerCount} peer${chatService.connectedPeerCount != 1 ? 's' : ''} connected (Debug: ${chatService.isStarted ? "Started" : "Stopped"})',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white70,
                       ),
@@ -106,13 +105,13 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         actions: [
-          Consumer<SimpleGossipChatService>(
+          Consumer<GossipChatService>(
             builder: (context, chatService, child) {
               return IconButton(
                 icon: Stack(
                   children: [
                     const Icon(Icons.people),
-                    if (chatService.peers.isNotEmpty)
+                    if (chatService.hasConnectedPeers)
                       Positioned(
                         right: 0,
                         top: 0,
@@ -127,7 +126,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             minHeight: 16,
                           ),
                           child: Text(
-                            '${chatService.peers.length}',
+                            '${chatService.connectedPeerCount}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -152,7 +151,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           const ConnectionDebugWidget(),
           // Connection status
-          Consumer<SimpleGossipChatService>(
+          Consumer<GossipChatService>(
             builder: (context, chatService, child) {
               if (_isStarting) {
                 return Container(
@@ -193,7 +192,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ],
                   ),
                 );
-              } else if (chatService.peers.isEmpty) {
+              } else if (!chatService.hasConnectedPeers) {
                 return Container(
                   padding: const EdgeInsets.all(12),
                   color: Colors.blue.shade50,
@@ -233,16 +232,16 @@ class _ChatScreenState extends State<ChatScreen> {
                             color: Colors.blue.shade600, fontSize: 11),
                       ),
                       Text(
-                        '✓ Peers Found: ${chatService.peers.length}',
+                        '✓ Peers Found: ${chatService.connectedPeerCount}',
                         style: TextStyle(
                             color: Colors.blue.shade600, fontSize: 11),
                       ),
-                      if (chatService.peers.isNotEmpty)
-                        ...chatService.peers.map((peer) => Text(
-                              '  - ${peer.name} (${peer.status.name})',
-                              style: TextStyle(
-                                  color: Colors.blue.shade600, fontSize: 10),
-                            )),
+                      // if (chatService.hasConnectedPeers)
+                      //   ...chatService.peers.map((peer) => Text(
+                      //         '  - ${peer.name} (${peer.status.name})',
+                      //         style: TextStyle(
+                      //             color: Colors.blue.shade600, fontSize: 10),
+                      //       )),
                       Text(
                         '• Advertising your device to nearby phones',
                         style: TextStyle(
@@ -271,7 +270,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
           // Messages list
           Expanded(
-            child: Consumer<SimpleGossipChatService>(
+            child: Consumer<GossipChatService>(
               builder: (context, chatService, child) {
                 if (chatService.messages.isEmpty) {
                   return Center(
@@ -371,7 +370,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Consumer<SimpleGossipChatService>(
+                  Consumer<GossipChatService>(
                     builder: (context, chatService, child) {
                       return FloatingActionButton(
                         mini: true,
