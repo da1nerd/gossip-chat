@@ -6,4 +6,6 @@
 - [ ] Implement a mechanism for handling network errors and retries.
 - [ ] Implement a mechanism for authentication and authorization.
 - [ ] Refine the gossip library interface; keep it simple and efficient.
+- [ ] Create Kotlin version of gossip library.
 - [ ] Create gossip-flutter library for flutter utilities.
+- [ ] Support peers with different transport protocols.
