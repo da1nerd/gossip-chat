@@ -1,0 +1,527 @@
+import 'dart:async';
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
+import 'package:gossip/gossip.dart';
+
+import 'nearby_connections_transport.dart';
+
+/// Represents a chat message in the gossip chat system.
+class ChatMessage {
+  final String id;
+  final String senderId;
+  final String senderName;
+  final String content;
+  final DateTime timestamp;
+  final String? replyToId;
+
+  const ChatMessage({
+    required this.id,
+    required this.senderId,
+    required this.senderName,
+    required this.content,
+    required this.timestamp,
+    this.replyToId,
+  });
+
+  factory ChatMessage.fromEvent(Event event) {
+    final payload = event.payload;
+    return ChatMessage(
+      id: event.id,
+      senderId: event.nodeId,
+      senderName: payload['senderName'] as String,
+      content: payload['content'] as String,
+      timestamp: DateTime.fromMillisecondsSinceEpoch(
+        payload['timestamp'] as int,
+      ),
+      replyToId: payload['replyToId'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toEventPayload() {
+    return {
+      'type': 'chat_message',
+      'senderName': senderName,
+      'content': content,
+      'timestamp': timestamp.millisecondsSinceEpoch,
+      if (replyToId != null) 'replyToId': replyToId,
+    };
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChatMessage && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+/// Represents a user in the chat system.
+class ChatUser {
+  final String id;
+  final String name;
+  final bool isOnline;
+  final DateTime? lastSeen;
+
+  const ChatUser({
+    required this.id,
+    required this.name,
+    required this.isOnline,
+    this.lastSeen,
+  });
+
+  ChatUser copyWith({
+    String? id,
+    String? name,
+    bool? isOnline,
+    DateTime? lastSeen,
+  }) {
+    return ChatUser(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeen: lastSeen ?? this.lastSeen,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ChatUser && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+/// Chat service using the GossipNode.
+///
+/// This service provides a clean, type-safe interface for chat functionality
+/// using the gossip protocol for event synchronization across devices.
+class GossipChatService extends ChangeNotifier {
+  static const String _serviceId = 'gossip_chat_demo';
+
+  final String _userId;
+  final String _userName;
+  late final NearbyConnectionsTransport _transport;
+  late final GossipNode _gossipNode;
+
+  final List<ChatMessage> _messages = [];
+  final Map<String, ChatUser> _users = {};
+  final Set<String> _processedEventIds = {};
+
+  StreamSubscription<Event>? _eventCreatedSubscription;
+  StreamSubscription<Event>? _eventReceivedSubscription;
+  StreamSubscription<GossipPeer>? _peerAddedSubscription;
+  StreamSubscription<GossipPeer>? _peerRemovedSubscription;
+
+  bool _isInitialized = false;
+  bool _isStarted = false;
+  String? _error;
+
+  GossipChatService({
+    required String userId,
+    required String userName,
+  })  : _userId = userId,
+        _userName = userName {
+    _initializeComponents();
+  }
+
+  void _initializeComponents() {
+    // Create transport
+    _transport = NearbyConnectionsTransport(
+      serviceId: _serviceId,
+      userName: _userName,
+      nodeId: _userId,
+    );
+
+    // Create gossip node with chat-optimized configuration
+    final config = GossipConfig(
+      nodeId: _userId,
+      gossipInterval: const Duration(seconds: 2),
+      fanout: 3,
+      gossipTimeout: const Duration(seconds: 8),
+      maxEventsPerMessage: 50,
+      enableAntiEntropy: true,
+      antiEntropyInterval: const Duration(minutes: 2),
+    );
+
+    _gossipNode = GossipNode(
+      config: config,
+      eventStore: MemoryEventStore(),
+      transport: _transport,
+    );
+
+    // Add ourselves as a user
+    _users[_userId] = ChatUser(
+      id: _userId,
+      name: _userName,
+      isOnline: true,
+    );
+  }
+
+  /// Initialize the chat service.
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+
+    try {
+      debugPrint('🚀 Initializing GossipChatService for $_userName');
+
+      _error = null;
+
+      // Set up event listeners before starting the node
+      _setupEventListeners();
+
+      // Start the gossip node
+      await _gossipNode.start();
+
+      // Send presence announcement
+      await _announcePresence();
+
+      _isInitialized = true;
+      notifyListeners();
+
+      debugPrint('✅ GossipChatService initialized successfully');
+    } catch (e, stackTrace) {
+      _error = 'Failed to initialize chat service: $e';
+      debugPrint('❌ $_error');
+      debugPrint(stackTrace.toString());
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Start the chat service.
+  Future<void> start() async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    if (_isStarted) return;
+
+    try {
+      debugPrint('▶️ Starting GossipChatService');
+
+      _isStarted = true;
+      notifyListeners();
+
+      debugPrint('✅ GossipChatService started successfully');
+    } catch (e) {
+      _error = 'Failed to start chat service: $e';
+      debugPrint('❌ $_error');
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Stop the chat service.
+  Future<void> stop() async {
+    if (!_isStarted) return;
+
+    try {
+      debugPrint('⏹️ Stopping GossipChatService');
+
+      // Send presence departure
+      await _announcePresence(isLeaving: true);
+      // TODO: do we need to trigger an immediate sync before stopping the gossip node?
+      //  Otherwise the departure message may not be received by other nodes.
+
+      // Cancel subscriptions
+      await _eventCreatedSubscription?.cancel();
+      await _eventReceivedSubscription?.cancel();
+      await _peerAddedSubscription?.cancel();
+      await _peerRemovedSubscription?.cancel();
+
+      // Stop gossip node
+      await _gossipNode.stop();
+
+      _isStarted = false;
+      _isInitialized = false;
+      notifyListeners();
+
+      debugPrint('✅ GossipChatService stopped successfully');
+    } catch (e) {
+      _error = 'Failed to stop chat service: $e';
+      debugPrint('❌ $_error');
+      notifyListeners();
+    }
+  }
+
+  void _setupEventListeners() {
+    // Listen for events we create
+    _eventCreatedSubscription = _gossipNode.onEventCreated.listen(
+      _handleEventCreated,
+      onError: (error) {
+        debugPrint('❌ Error in event created stream: $error');
+      },
+    );
+
+    // Listen for events from other nodes
+    _eventReceivedSubscription = _gossipNode.onEventReceived.listen(
+      _handleEventReceived,
+      onError: (error) {
+        debugPrint('❌ Error in event received stream: $error');
+      },
+    );
+
+    // Listen for peer connections
+    _peerAddedSubscription = _gossipNode.onPeerAdded.listen(
+      _handlePeerAdded,
+      onError: (error) {
+        debugPrint('❌ Error in peer added stream: $error');
+      },
+    );
+
+    // Listen for peer disconnections
+    _peerRemovedSubscription = _gossipNode.onPeerRemoved.listen(
+      _handlePeerRemoved,
+      onError: (error) {
+        debugPrint('❌ Error in peer removed stream: $error');
+      },
+    );
+  }
+
+  void _handleEventCreated(Event event) {
+    debugPrint('📝 Local event created: ${event.id}');
+    _processEvent(event, isLocal: true);
+  }
+
+  void _handleEventReceived(Event event) {
+    debugPrint('📥 Remote event received: ${event.id}');
+    _processEvent(event, isLocal: false);
+  }
+
+  void _handlePeerAdded(GossipPeer peer) {
+    debugPrint('👋 Peer added: ${peer.id}');
+    // Peer information will come through presence events
+    notifyListeners();
+  }
+
+  void _handlePeerRemoved(GossipPeer peer) {
+    debugPrint('👋 Peer removed: ${peer.id}');
+
+    // Mark user as offline
+    final user = _users[peer.id];
+    if (user != null) {
+      _users[peer.id] = user.copyWith(
+        isOnline: false,
+        lastSeen: DateTime.now(),
+      );
+    }
+
+    notifyListeners();
+  }
+
+  void _processEvent(Event event, {required bool isLocal}) {
+    // TODO: doesn't gossip already deal with duplicate events?
+    // Prevent duplicate processing
+    if (_processedEventIds.contains(event.id)) {
+      return;
+    }
+    _processedEventIds.add(event.id);
+
+    try {
+      final payload = event.payload;
+      final eventType = payload['type'] as String?;
+
+      switch (eventType) {
+        case 'chat_message':
+          _processChatMessage(event);
+          break;
+        case 'user_presence':
+          _processUserPresence(event);
+          break;
+        default:
+          debugPrint('⚠️ Unknown event type: $eventType');
+      }
+    } catch (e) {
+      debugPrint('❌ Error processing event ${event.id}: $e');
+    }
+  }
+
+  void _processChatMessage(Event event) {
+    try {
+      final message = ChatMessage.fromEvent(event);
+
+      // Add message if not already present
+      if (!_messages.any((m) => m.id == message.id)) {
+        _messages.add(message);
+        _sortMessages();
+
+        debugPrint('💬 Added chat message: ${message.content}');
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('❌ Error processing chat message: $e');
+    }
+  }
+
+  void _processUserPresence(Event event) {
+    try {
+      final payload = event.payload;
+      final userId = payload['userId'] as String;
+      final userName = payload['userName'] as String;
+      final isOnline = payload['isOnline'] as bool? ?? true;
+
+      _users[userId] = ChatUser(
+        id: userId,
+        name: userName,
+        isOnline: isOnline,
+        lastSeen: isOnline ? null : DateTime.now(),
+      );
+
+      debugPrint('👤 Updated user presence: $userName ($isOnline)');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error processing user presence: $e');
+    }
+  }
+
+  void _sortMessages() {
+    _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  }
+
+  Future<void> _announcePresence({bool isLeaving = false}) async {
+    try {
+      final payload = {
+        'type': 'user_presence',
+        'userId': _userId,
+        'userName': _userName,
+        'isOnline': !isLeaving,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      await _gossipNode.createEvent(payload);
+      debugPrint('📢 Announced presence: ${!isLeaving}');
+    } catch (e) {
+      debugPrint('❌ Failed to announce presence: $e');
+    }
+  }
+
+  /// Send a chat message.
+  Future<ChatMessage> sendMessage(String content, {String? replyToId}) async {
+    if (!_isStarted) {
+      throw StateError('Chat service not started');
+    }
+
+    if (content.trim().isEmpty) {
+      throw ArgumentError('Message content cannot be empty');
+    }
+
+    try {
+      final messageId =
+          '${_userId}_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
+
+      final message = ChatMessage(
+        id: messageId,
+        senderId: _userId,
+        senderName: _userName,
+        content: content.trim(),
+        timestamp: DateTime.now(),
+        replyToId: replyToId,
+      );
+
+      // Create gossip event
+      await _gossipNode.createEvent(message.toEventPayload());
+
+      debugPrint('📤 Sent message: ${message.content}');
+      return message;
+    } catch (e) {
+      debugPrint('❌ Failed to send message: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all chat messages, sorted by timestamp.
+  List<ChatMessage> get messages => List.unmodifiable(_messages);
+
+  /// Get all known users.
+  List<ChatUser> get users => _users.values.toList();
+
+  /// Get online users only.
+  List<ChatUser> get onlineUsers =>
+      _users.values.where((user) => user.isOnline).toList();
+
+  /// Get the current user.
+  ChatUser get currentUser => _users[_userId]!;
+
+  /// Whether the service is initialized.
+  bool get isInitialized => _isInitialized;
+
+  /// Whether the service is started.
+  bool get isStarted => _isStarted;
+
+  /// Current error message, if any.
+  String? get error => _error;
+
+  /// Number of connected peers.
+  int get connectedPeerCount => _transport.peerCount;
+
+  /// Whether we have any connected peers.
+  bool get hasConnectedPeers => _transport.hasConnectedPeers;
+
+  /// Get connection statistics for debugging.
+  Map<String, dynamic> getConnectionStats() => _transport.getStats();
+
+  /// Get detailed connection status for debugging.
+  String getConnectionStatus() => _transport.getConnectionStatus();
+
+  /// Clear the current error.
+  void clearError() {
+    if (_error != null) {
+      _error = null;
+      notifyListeners();
+    }
+  }
+
+  /// Manually trigger peer discovery.
+  Future<void> discoverPeers() async {
+    if (!_isStarted) return;
+
+    try {
+      await _gossipNode.discoverPeers();
+      debugPrint('🔍 Triggered peer discovery');
+    } catch (e) {
+      debugPrint('❌ Peer discovery failed: $e');
+    }
+  }
+
+  /// Manually trigger gossip exchange.
+  Future<void> gossip() async {
+    if (!_isStarted) return;
+
+    try {
+      await _gossipNode.gossip();
+      debugPrint('🗣️ Triggered gossip exchange');
+    } catch (e) {
+      debugPrint('❌ Gossip exchange failed: $e');
+    }
+  }
+
+  /// Get a message by ID.
+  ChatMessage? getMessageById(String messageId) {
+    try {
+      return _messages.firstWhere((m) => m.id == messageId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get messages from a specific user.
+  List<ChatMessage> getMessagesFromUser(String userId) {
+    return _messages.where((m) => m.senderId == userId).toList();
+  }
+
+  /// Get messages that are replies to a specific message.
+  List<ChatMessage> getRepliesTo(String messageId) {
+    return _messages.where((m) => m.replyToId == messageId).toList();
+  }
+
+  @override
+  void dispose() {
+    stop();
+    super.dispose();
+  }
+}
