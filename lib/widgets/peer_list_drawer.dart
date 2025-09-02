@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/chat_peer.dart';
-import '../services/simple_gossip_chat_service.dart';
+import '../services/gossip_chat_service.dart';
 
 class PeerListDrawer extends StatelessWidget {
   const PeerListDrawer({super.key});
@@ -38,7 +38,7 @@ class PeerListDrawer extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Consumer<SimpleGossipChatService>(
+            child: Consumer<GossipChatService>(
               builder: (context, chatService, child) {
                 if (chatService.peers.isEmpty) {
                   return const Center(
@@ -94,7 +94,7 @@ class PeerListDrawer extends StatelessWidget {
                 top: BorderSide(color: Colors.grey.shade300),
               ),
             ),
-            child: Consumer<SimpleGossipChatService>(
+            child: Consumer<GossipChatService>(
               builder: (context, chatService, child) {
                 return Row(
                   children: [

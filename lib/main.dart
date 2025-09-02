@@ -3,7 +3,6 @@ import 'package:gossip_chat_demo/services/gossip_chat_service.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/name_input_screen.dart';
-import 'services/simple_gossip_chat_service.dart';
 
 void main() {
   runApp(const MyApp());

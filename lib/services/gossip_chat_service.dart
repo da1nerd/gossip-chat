@@ -4,10 +4,12 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:gossip/gossip.dart';
 import 'package:gossip_chat_demo/models/chat_message.dart';
+import 'package:gossip_chat_demo/models/chat_peer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'nearby_connections_transport.dart';
+import 'permissions_service.dart';
 
 /// Represents a user in the chat system.
 class ChatUser {
@@ -144,6 +146,14 @@ class GossipChatService extends ChangeNotifier {
     try {
       debugPrint('🚀 Initializing GossipChatService...');
 
+      // Request permissions first
+      final permissionsService = PermissionsService();
+      final hasPermissions = await permissionsService.requestAllPermissions();
+      if (!hasPermissions) {
+        throw Exception('Required permissions not granted');
+      }
+      debugPrint('✅ Permissions granted');
+
       // Load or generate user info first
       await _loadUserInfo();
       debugPrint('✅ User info loaded: $_userName ($_userId)');
@@ -159,7 +169,8 @@ class GossipChatService extends ChangeNotifier {
       // Start the gossip node
       await _gossipNode.start();
 
-      // Send presence announcement
+      // Send initial presence announcement
+      // The gossip library will automatically sync this to all peers (current and future)
       await _announcePresence();
 
       _isInitialized = true;
@@ -278,6 +289,7 @@ class GossipChatService extends ChangeNotifier {
   void _handlePeerAdded(GossipPeer peer) {
     debugPrint('👋 Peer added: ${peer.id}');
     // Peer information will come through presence events
+    // The gossip library will automatically sync all events including presence
     notifyListeners();
   }
 
@@ -347,6 +359,14 @@ class GossipChatService extends ChangeNotifier {
       final userName = payload['userName'] as String;
       final isOnline = payload['isOnline'] as bool? ?? true;
 
+      // Skip processing our own presence events
+      if (userId == _userId) {
+        debugPrint('📢 Ignoring own presence event: $userName');
+        return;
+      }
+
+      final wasNewUser = !_users.containsKey(userId);
+
       _users[userId] = ChatUser(
         id: userId,
         name: userName,
@@ -354,7 +374,10 @@ class GossipChatService extends ChangeNotifier {
         lastSeen: isOnline ? null : DateTime.now(),
       );
 
-      debugPrint('👤 Updated user presence: $userName ($isOnline)');
+      debugPrint(
+          '👤 ${wasNewUser ? 'Added new user' : 'Updated user presence'}: $userName (${isOnline ? 'online' : 'offline'})');
+      debugPrint(
+          '📊 Total users: ${_users.length}, Online: ${onlineUsers.length}, Peers available: ${peers.length}');
       notifyListeners();
     } catch (e) {
       debugPrint('❌ Error processing user presence: $e');
@@ -376,7 +399,11 @@ class GossipChatService extends ChangeNotifier {
       };
 
       await _gossipNode.createEvent(payload);
-      debugPrint('📢 Announced presence: ${!isLeaving}');
+      debugPrint(
+          '📢 Announced ${isLeaving ? 'departure' : 'presence'} for $_userName');
+      debugPrint('🌐 Connected transport peers: $connectedPeerCount');
+      debugPrint(
+          '👥 Known chat users: ${_users.length} (${onlineUsers.length} online)');
     } catch (e) {
       debugPrint('❌ Failed to announce presence: $e');
     }
@@ -455,6 +482,23 @@ class GossipChatService extends ChangeNotifier {
 
   /// Get detailed connection status for debugging.
   String getConnectionStatus() => _transport.getConnectionStatus();
+
+  /// Get connection statistics for debugging (compatibility with SimpleGossipChatService)
+  Map<String, dynamic> get connectionStats => getConnectionStats();
+
+  /// Get peers as ChatPeer objects for UI compatibility
+  List<ChatPeer> get peers {
+    return onlineUsers
+        .map((user) => ChatPeer(
+              id: user.id,
+              name: user.name,
+              status: user.isOnline
+                  ? ChatPeerStatus.connected
+                  : ChatPeerStatus.disconnected,
+              connectedAt: DateTime.now(),
+            ))
+        .toList();
+  }
 
   /// Clear the current error.
   void clearError() {

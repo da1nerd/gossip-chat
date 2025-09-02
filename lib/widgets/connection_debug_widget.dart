@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gossip_chat_demo/services/gossip_chat_service.dart';
 import 'package:provider/provider.dart';
-import '../services/simple_gossip_chat_service.dart';
 
 /// A debug widget that displays connection status and statistics.
 /// Useful for troubleshooting multi-device connection issues.
@@ -225,7 +224,7 @@ class ConnectionDebugFAB extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SimpleGossipChatService>(
+    return Consumer<GossipChatService>(
       builder: (context, chatService, child) {
         final stats = chatService.connectionStats;
         final peerCount = chatService.peers.length;
