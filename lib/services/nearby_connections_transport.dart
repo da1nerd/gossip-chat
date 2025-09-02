@@ -221,7 +221,6 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
     }
   }
 
-
   // void _onConnectionInitiated(String id, ConnectionInfo info) {
   //   debugPrint('🤝 Connection initiated with $id: ${info.endpointName}');
   //
@@ -297,6 +296,31 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
 
     debugPrint(
         '📊 Broadcast complete: $successCount/${_connectedPeers.length + (successCount < _connectedPeers.length ? _connectedPeers.length - successCount : 0)} peers reached');
+  }
+
+  @override
+  Future<void> sendEventToPeer(String peerId, Event event) async {
+    if (!_initialized) {
+      throw StateError('Transport not initialized');
+    }
+
+    if (!_connectedPeers.contains(peerId)) {
+      debugPrint('⚠️ Peer $peerId is not connected, cannot send event');
+      return;
+    }
+
+    final message = jsonEncode(event.toJson());
+    final bytes = Uint8List.fromList(utf8.encode(message));
+
+    try {
+      await Nearby().sendBytesPayload(peerId, bytes);
+      debugPrint('✉️ Sent event ${event.id} to peer $peerId');
+    } catch (e) {
+      debugPrint('❌ Failed to send event to $peerId: $e');
+      // Remove failed peer from connected list
+      _connectedPeers.remove(peerId);
+      rethrow;
+    }
   }
 
   @override
@@ -395,13 +419,11 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
   void cleanupStaleConnections() {
     debugPrint('🧹 Cleaning up stale connections...');
 
-    // Remove any pending connections that have been stuck for too long
-    final now = DateTime.now();
-    final staleThreshold = const Duration(minutes: 2);
-
     // Note: In a real implementation, you'd want to track connection timestamps
+    // and remove stale connections that have been stuck for too long
     // For now, we'll just log the cleanup attempt
-    debugPrint('🧹 Cleanup complete - Connected: ${_connectedPeers.length}, Pending: ${_pendingConnections.length}');
+    debugPrint(
+        '🧹 Cleanup complete - Connected: ${_connectedPeers.length}, Pending: ${_pendingConnections.length}');
   }
 
   /// Retry failed connections with exponential backoff

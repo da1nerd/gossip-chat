@@ -7,6 +7,7 @@ A fully functional Flutter peer-to-peer chat application that enables real-time 
 - **🔌 Offline P2P Messaging** - Chat with nearby devices without internet
 - **🔍 Automatic Device Discovery** - Finds and connects to nearby devices automatically
 - **⚡ Real-time Synchronization** - Messages appear instantly on all connected devices
+- **📚 Historical Event Sync** - New devices automatically receive complete chat history
 - **🎨 Modern UI** - Clean Material Design 3 interface with message bubbles
 - **👥 Peer Management** - View all connected users in an elegant sidebar
 - **🔔 System Notifications** - Join/leave notifications with user-friendly messages

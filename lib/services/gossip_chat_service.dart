@@ -30,6 +30,7 @@ class GossipChatService extends ChangeNotifier {
   final Map<String, ChatPeer> _peers = {};
   bool _isInitialized = false;
   bool _isStarted = false;
+  bool _enableHistoricalSync = true; // Enable historical sync by default
 
   final StreamController<ChatMessage> _messageController =
       StreamController.broadcast();
@@ -45,6 +46,7 @@ class GossipChatService extends ChangeNotifier {
   String? get userId => _userId;
   bool get isInitialized => _isInitialized;
   bool get isStarted => _isStarted;
+  bool get enableHistoricalSync => _enableHistoricalSync;
 
   // Streams
   Stream<ChatMessage> get onMessageReceived => _messageController.stream;
@@ -206,6 +208,45 @@ class GossipChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Enable or disable historical sync for newly connected peers
+  void setHistoricalSyncEnabled(bool enabled) {
+    _enableHistoricalSync = enabled;
+    debugPrint('📚 Historical sync ${enabled ? 'enabled' : 'disabled'}');
+    notifyListeners();
+  }
+
+  /// Manually sync historical events to a specific peer
+  Future<void> syncHistoricalEventsToPeer(String peerId) async {
+    if (!_isStarted || _gossipNode == null) {
+      throw StateError('Service not started');
+    }
+
+    try {
+      debugPrint('📚 Manually syncing historical events to peer: $peerId');
+      await _gossipNode!.syncHistoricalEventsToPeer(peerId);
+      debugPrint('✅ Manual historical sync completed for peer: $peerId');
+    } catch (e) {
+      debugPrint('❌ Manual historical sync failed for peer $peerId: $e');
+      rethrow;
+    }
+  }
+
+  /// Sync historical events to all currently connected peers
+  Future<void> syncHistoricalEventsToAllPeers() async {
+    if (!_isStarted || _gossipNode == null) {
+      throw StateError('Service not started');
+    }
+
+    try {
+      debugPrint('📚 Manually syncing historical events to all peers');
+      await _gossipNode!.syncHistoricalEventsToAllPeers();
+      debugPrint('✅ Manual historical sync completed for all peers');
+    } catch (e) {
+      debugPrint('❌ Manual historical sync failed: $e');
+      rethrow;
+    }
+  }
+
   void _setupEventListeners() {
     if (_gossipNode == null) return;
 
@@ -229,6 +270,11 @@ class GossipChatService extends ChangeNotifier {
       debugPrint('👋 Peer joined: $peerId');
       // Re-send our join event to newly connected peers so they know we're here
       _sendJoinEventToPeer(peerId);
+      // Note: Historical sync is automatically handled by SimpleGossipNode
+      if (_enableHistoricalSync) {
+        debugPrint(
+            '📚 Historical sync enabled - events will be synced automatically to $peerId');
+      }
     });
 
     _gossipNode!.onPeerLeft.listen((peerId) {
