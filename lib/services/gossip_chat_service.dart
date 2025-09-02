@@ -69,7 +69,7 @@ class GossipChatService extends ChangeNotifier {
   final Map<String, String> _peerIdToUserIdMap = {};
 
   StreamSubscription<Event>? _eventCreatedSubscription;
-  StreamSubscription<Event>? _eventReceivedSubscription;
+  StreamSubscription<ReceivedEvent>? _eventReceivedSubscription;
   StreamSubscription<GossipPeer>? _peerAddedSubscription;
   StreamSubscription<GossipPeer>? _peerRemovedSubscription;
 
@@ -285,8 +285,19 @@ class GossipChatService extends ChangeNotifier {
     _processEvent(event, isLocal: true);
   }
 
-  void _handleEventReceived(Event event) {
-    debugPrint('📥 Remote event received: ${event.id}');
+  void _handleEventReceived(ReceivedEvent receivedEvent) {
+    final event = receivedEvent.event;
+    final fromPeer = receivedEvent.fromPeer;
+
+    debugPrint('📥 Remote event received: ${event.id} from peer: ${fromPeer.id}');
+
+    // Establish mapping between transport peer ID and user ID
+    final userId = event.nodeId;
+    if (userId != _userId && !_peerIdToUserIdMap.containsKey(fromPeer.id)) {
+      _peerIdToUserIdMap[fromPeer.id] = userId;
+      debugPrint('🔗 Mapped peer ${fromPeer.id} to user $userId');
+    }
+
     _processEvent(event, isLocal: false);
   }
 
@@ -301,7 +312,7 @@ class GossipChatService extends ChangeNotifier {
   void _handlePeerRemoved(GossipPeer peer) {
     debugPrint('👋 Peer removed: ${peer.id}');
 
-    // Get the user ID from the endpoint ID mapping
+    // Get the user ID from the peer ID mapping
     final userId = _peerIdToUserIdMap[peer.id];
     if (userId != null) {
       final user = _users[userId];
@@ -310,10 +321,12 @@ class GossipChatService extends ChangeNotifier {
           isOnline: false,
           lastSeen: DateTime.now(),
         );
-        debugPrint('👤 Marked user offline: ${user.name} (endpoint: ${peer.id}, user: $userId)');
+        debugPrint('👤 Marked user offline: ${user.name} (peer: ${peer.id}, user: $userId)');
       }
+      // Remove the mapping since the peer is gone
+      _peerIdToUserIdMap.remove(peer.id);
     } else {
-      debugPrint('⚠️ No user mapping found for endpoint: ${peer.id}');
+      debugPrint('⚠️ No user mapping found for peer: ${peer.id}');
     }
 
     notifyListeners();
@@ -509,7 +522,7 @@ class GossipChatService extends ChangeNotifier {
 
   /// Get peers as ChatPeer objects for UI compatibility
   List<ChatPeer> get peers {
-    return onlineUsers
+    return users
         .map((user) => ChatPeer(
               id: user.id,
               name: user.name,
