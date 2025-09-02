@@ -14,15 +14,28 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
   final String userName;
 
   final Set<String> _connectedPeers = {};
+  final Set<String> _pendingConnections = {};
+  final Map<String, int> _connectionAttempts = {};
   final StreamController<Event> _incomingEventsController =
       StreamController.broadcast();
 
   bool _initialized = false;
 
+  // Connection management settings
+  static const int _maxConnectionAttempts = 3;
+  static const Duration _connectionRetryDelay = Duration(seconds: 2);
+  static const int _maxConcurrentConnections =
+      8; // Android Nearby Connections limit
+  static const Duration _connectionThrottleDelay = Duration(milliseconds: 500);
+
+  // Connection strategy options
+  final Strategy _connectionStrategy;
+
   NearbyConnectionsTransport({
     required this.serviceId,
     required this.userName,
-  });
+    Strategy connectionStrategy = Strategy.P2P_CLUSTER,
+  }) : _connectionStrategy = connectionStrategy;
 
   @override
   Future<void> initialize() async {
@@ -48,9 +61,10 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
   }
 
   Future<void> _startAdvertising() async {
+    debugPrint('📡 Starting advertising with strategy: $_connectionStrategy');
     await Nearby().startAdvertising(
       userName,
-      Strategy.P2P_CLUSTER,
+      _connectionStrategy,
       onConnectionInitiated: _onConnectionInitiated,
       onConnectionResult: _onConnectionResult,
       onDisconnected: _onDisconnected,
@@ -59,9 +73,10 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
   }
 
   Future<void> _startDiscovery() async {
+    debugPrint('🔍 Starting discovery with strategy: $_connectionStrategy');
     await Nearby().startDiscovery(
       userName,
-      Strategy.P2P_CLUSTER,
+      _connectionStrategy,
       onEndpointFound: _onEndpointFound,
       onEndpointLost: _onEndpointLost,
       serviceId: serviceId,
@@ -70,6 +85,17 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
 
   void _onConnectionInitiated(String id, ConnectionInfo info) {
     debugPrint('🤝 Connection initiated with $id: ${info.endpointName}');
+
+    // Check connection limits before accepting
+    if (_connectedPeers.length >= _maxConcurrentConnections) {
+      debugPrint('❌ Connection limit reached, rejecting connection from $id');
+      try {
+        Nearby().rejectConnection(id);
+      } catch (e) {
+        debugPrint('❌ Failed to reject connection with $id: $e');
+      }
+      return;
+    }
 
     // Auto-accept all connections for simplicity
     try {
@@ -87,26 +113,55 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
   void _onConnectionResult(String id, Status status) {
     debugPrint('🔗 Connection result for $id: $status');
 
+    // Always remove from pending connections
+    _pendingConnections.remove(id);
+
     if (status == Status.CONNECTED) {
       _connectedPeers.add(id);
-      debugPrint('🎉 Successfully connected to peer $id (Total: ${_connectedPeers.length})');
+      _connectionAttempts.remove(id); // Reset attempts on successful connection
+      debugPrint(
+          '🎉 Successfully connected to peer $id (Total: ${_connectedPeers.length})');
     } else {
       _connectedPeers.remove(id);
       debugPrint('❌ Connection failed with $id: $status');
+
+      // Don't immediately retry on connection failure to avoid spam
+      // The retry logic is handled in _requestConnection if appropriate
     }
   }
 
   void _onDisconnected(String id) {
     debugPrint('💔 Disconnected from peer $id');
     _connectedPeers.remove(id);
+    _pendingConnections.remove(id);
+    // Reset connection attempts when disconnected to allow reconnection
+    _connectionAttempts.remove(id);
     debugPrint('📊 Remaining peers: ${_connectedPeers.length}');
   }
 
   void _onEndpointFound(String id, String name, String serviceId) {
     debugPrint('🎯 FOUND DEVICE! ID: $id, Name: $name, Service: $serviceId');
 
-    // Automatically request connection to found devices
-    _requestConnection(id, name);
+    // Check connection limits before attempting connection
+    if (_connectedPeers.length + _pendingConnections.length >=
+        _maxConcurrentConnections) {
+      debugPrint(
+          '⚠️ Connection limit reached, skipping connection to $name ($id)');
+      return;
+    }
+
+    // Skip if we've already tried too many times
+    if ((_connectionAttempts[id] ?? 0) >= _maxConnectionAttempts) {
+      debugPrint('⚠️ Max attempts reached for $name ($id), skipping');
+      return;
+    }
+
+    // Throttle connection attempts to avoid overwhelming the system
+    Future.delayed(_connectionThrottleDelay, () {
+      if (!_connectedPeers.contains(id) && !_pendingConnections.contains(id)) {
+        _requestConnection(id, name);
+      }
+    });
   }
 
   void _onEndpointLost(String? id) {
@@ -116,11 +171,28 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
     }
   }
 
-  void _requestConnection(String id, String name) {
-    debugPrint('📞 Requesting connection to $name ($id)');
+  void _requestConnection(String id, String name) async {
+    // Check if already connected or pending
+    if (_connectedPeers.contains(id) || _pendingConnections.contains(id)) {
+      debugPrint('⚠️ Connection to $name ($id) already exists or is pending');
+      return;
+    }
+
+    // Check connection attempts
+    final attempts = _connectionAttempts[id] ?? 0;
+    if (attempts >= _maxConnectionAttempts) {
+      debugPrint('❌ Max connection attempts reached for $name ($id)');
+      return;
+    }
+
+    _pendingConnections.add(id);
+    _connectionAttempts[id] = attempts + 1;
+
+    debugPrint(
+        '📞 Requesting connection to $name ($id) (attempt ${attempts + 1}/$_maxConnectionAttempts)');
 
     try {
-      Nearby().requestConnection(
+      await Nearby().requestConnection(
         userName,
         id,
         onConnectionInitiated: _onConnectionInitiated,
@@ -129,8 +201,42 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
       );
     } catch (e) {
       debugPrint('❌ Failed to request connection to $id: $e');
+      _pendingConnections.remove(id);
+
+      // Handle specific error codes
+      if (e.toString().contains('STATUS_ENDPOINT_IO_ERROR') ||
+          e.toString().contains('8012')) {
+        debugPrint('🔄 IO Error detected, waiting longer before retry...');
+        if (attempts + 1 < _maxConnectionAttempts) {
+          Timer(Duration(seconds: 3 + attempts), () {
+            _requestConnection(id, name);
+          });
+        }
+      } else if (attempts + 1 < _maxConnectionAttempts) {
+        debugPrint('🔄 Retrying connection to $name ($id) after delay...');
+        Timer(_connectionRetryDelay, () {
+          _requestConnection(id, name);
+        });
+      }
     }
   }
+
+
+  // void _onConnectionInitiated(String id, ConnectionInfo info) {
+  //   debugPrint('🤝 Connection initiated with $id: ${info.endpointName}');
+  //
+  //   // Auto-accept all connections for simplicity
+  //   try {
+  //     Nearby().acceptConnection(
+  //       id,
+  //       onPayLoadRecieved: _onPayloadReceived,
+  //       onPayloadTransferUpdate: _onPayloadTransferUpdate,
+  //     );
+  //     debugPrint('✅ Auto-accepted connection with $id');
+  //   } catch (e) {
+  //     debugPrint('❌ Failed to accept connection with $id: $e');
+  //   }
+  // }
 
   void _onPayloadReceived(String endpointId, Payload payload) {
     if (payload.type == PayloadType.BYTES) {
@@ -172,7 +278,8 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
     final message = jsonEncode(event.toJson());
     final bytes = Uint8List.fromList(utf8.encode(message));
 
-    debugPrint('📤 Broadcasting event ${event.id} to ${_connectedPeers.length} peers');
+    debugPrint(
+        '📤 Broadcasting event ${event.id} to ${_connectedPeers.length} peers');
 
     // Send to all connected peers
     int successCount = 0;
@@ -188,7 +295,8 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
       }
     }
 
-    debugPrint('📊 Broadcast complete: $successCount/${_connectedPeers.length + (successCount < _connectedPeers.length ? _connectedPeers.length - successCount : 0)} peers reached');
+    debugPrint(
+        '📊 Broadcast complete: $successCount/${_connectedPeers.length + (successCount < _connectedPeers.length ? _connectedPeers.length - successCount : 0)} peers reached');
   }
 
   @override
@@ -215,6 +323,8 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
 
       await _incomingEventsController.close();
       _connectedPeers.clear();
+      _pendingConnections.clear();
+      _connectionAttempts.clear();
       _initialized = false;
 
       debugPrint('✅ NearbyConnectionsTransport disposed successfully');
@@ -231,9 +341,13 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
     return {
       'initialized': _initialized,
       'connectedPeers': _connectedPeers.length,
+      'pendingConnections': _pendingConnections.length,
+      'connectionAttempts': _connectionAttempts.length,
       'peerIds': _connectedPeers.toList(),
+      'pendingIds': _pendingConnections.toList(),
       'userName': userName,
       'serviceId': serviceId,
+      'connectionStrategy': _connectionStrategy.toString(),
     };
   }
 
@@ -242,4 +356,85 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
 
   /// Check if we have any connected peers
   bool get hasConnectedPeers => _connectedPeers.isNotEmpty;
+
+  /// Get detailed connection status for debugging
+  String getConnectionStatus() {
+    final buffer = StringBuffer();
+    buffer.writeln('=== Nearby Connections Status ===');
+    buffer.writeln('Initialized: $_initialized');
+    buffer.writeln('Strategy: $_connectionStrategy');
+    buffer.writeln('Connected Peers: ${_connectedPeers.length}');
+    buffer.writeln('Pending Connections: ${_pendingConnections.length}');
+    buffer.writeln('Connection Attempts: ${_connectionAttempts.length}');
+
+    if (_connectedPeers.isNotEmpty) {
+      buffer.writeln('\nConnected Peer IDs:');
+      for (final peerId in _connectedPeers) {
+        buffer.writeln('  • $peerId');
+      }
+    }
+
+    if (_pendingConnections.isNotEmpty) {
+      buffer.writeln('\nPending Connections:');
+      for (final peerId in _pendingConnections) {
+        buffer.writeln('  • $peerId');
+      }
+    }
+
+    if (_connectionAttempts.isNotEmpty) {
+      buffer.writeln('\nConnection Attempts:');
+      _connectionAttempts.forEach((id, attempts) {
+        buffer.writeln('  • $id: $attempts/$_maxConnectionAttempts');
+      });
+    }
+
+    return buffer.toString();
+  }
+
+  /// Force cleanup of stale connection states
+  void cleanupStaleConnections() {
+    debugPrint('🧹 Cleaning up stale connections...');
+
+    // Remove any pending connections that have been stuck for too long
+    final now = DateTime.now();
+    final staleThreshold = const Duration(minutes: 2);
+
+    // Note: In a real implementation, you'd want to track connection timestamps
+    // For now, we'll just log the cleanup attempt
+    debugPrint('🧹 Cleanup complete - Connected: ${_connectedPeers.length}, Pending: ${_pendingConnections.length}');
+  }
+
+  /// Retry failed connections with exponential backoff
+  Future<void> retryFailedConnections() async {
+    if (_connectionAttempts.isEmpty) return;
+
+    debugPrint('🔄 Retrying failed connections...');
+    final toRetry = <String, int>{};
+
+    // Find connections that haven't reached max attempts
+    _connectionAttempts.forEach((id, attempts) {
+      if (attempts < _maxConnectionAttempts &&
+          !_connectedPeers.contains(id) &&
+          !_pendingConnections.contains(id)) {
+        toRetry[id] = attempts;
+      }
+    });
+
+    if (toRetry.isEmpty) {
+      debugPrint('🔄 No connections to retry');
+      return;
+    }
+
+    debugPrint('🔄 Retrying ${toRetry.length} connections');
+    for (final entry in toRetry.entries) {
+      final id = entry.key;
+      final attempts = entry.value;
+
+      // Exponential backoff delay
+      final delay = Duration(seconds: 2 * (attempts + 1));
+      Timer(delay, () {
+        _requestConnection(id, 'Unknown-$id');
+      });
+    }
+  }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:gossip/gossip.dart';
+import 'package:nearby_connections/nearby_connections.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -81,6 +82,8 @@ class GossipChatService extends ChangeNotifier {
       _transport = NearbyConnectionsTransport(
         serviceId: _serviceId,
         userName: _userName!,
+        connectionStrategy:
+            Strategy.P2P_CLUSTER, // Use P2P_STAR for hub-and-spoke if needed
       );
       debugPrint('✅ Transport created');
 
@@ -207,15 +210,18 @@ class GossipChatService extends ChangeNotifier {
     if (_gossipNode == null) return;
 
     // Listen for chat message events
-    _gossipNode!.onTypedEvent<ChatMessageEvent>(ChatMessageEvent.fromJson)
+    _gossipNode!
+        .onTypedEvent<ChatMessageEvent>(ChatMessageEvent.fromJson)
         .listen(_handleChatMessageEvent);
 
     // Listen for user joined events
-    _gossipNode!.onTypedEvent<UserJoinedEvent>(UserJoinedEvent.fromJson)
+    _gossipNode!
+        .onTypedEvent<UserJoinedEvent>(UserJoinedEvent.fromJson)
         .listen(_handleUserJoinedEvent);
 
     // Listen for user left events
-    _gossipNode!.onTypedEvent<UserLeftEvent>(UserLeftEvent.fromJson)
+    _gossipNode!
+        .onTypedEvent<UserLeftEvent>(UserLeftEvent.fromJson)
         .listen(_handleUserLeftEvent);
 
     // Listen for peer changes from the transport
@@ -239,8 +245,8 @@ class GossipChatService extends ChangeNotifier {
       if (event.senderId == _userId) return;
 
       // Check if message already exists (duplicate detection)
-      if (_messages.any((m) => m.senderId == event.senderId &&
-                            m.timestamp == event.timestamp)) {
+      if (_messages.any((m) =>
+          m.senderId == event.senderId && m.timestamp == event.timestamp)) {
         return;
       }
 
@@ -258,7 +264,8 @@ class GossipChatService extends ChangeNotifier {
       _messageController.add(message);
       notifyListeners();
 
-      debugPrint('📨 Received message from ${event.senderName}: "${event.content}"');
+      debugPrint(
+          '📨 Received message from ${event.senderName}: "${event.content}"');
     } catch (e) {
       debugPrint('❌ Error handling chat message event: $e');
     }
@@ -293,7 +300,8 @@ class GossipChatService extends ChangeNotifier {
 
         debugPrint('👋 User joined: ${event.userName} (${event.userId})');
       } else {
-        debugPrint('🔄 Received duplicate join event for: ${event.userName} (${event.userId})');
+        debugPrint(
+            '🔄 Received duplicate join event for: ${event.userName} (${event.userId})');
       }
     } catch (e) {
       debugPrint('❌ Error handling user joined event: $e');
@@ -325,7 +333,8 @@ class GossipChatService extends ChangeNotifier {
     if (!_peers.containsKey(peer.id)) {
       _peers[peer.id] = peer;
       _peerJoinedController.add(peer);
-      debugPrint('➕ Added peer: ${peer.name} (${peer.id}) - Total peers: ${_peers.length}');
+      debugPrint(
+          '➕ Added peer: ${peer.name} (${peer.id}) - Total peers: ${_peers.length}');
       notifyListeners();
     } else {
       // Update existing peer info
@@ -339,7 +348,8 @@ class GossipChatService extends ChangeNotifier {
     final peer = _peers.remove(peerId);
     if (peer != null) {
       _peerLeftController.add(peer);
-      debugPrint('➖ Removed peer: ${peer.name} (${peer.id}) - Total peers: ${_peers.length}');
+      debugPrint(
+          '➖ Removed peer: ${peer.name} (${peer.id}) - Total peers: ${_peers.length}');
       notifyListeners();
     }
   }
@@ -391,12 +401,13 @@ class GossipChatService extends ChangeNotifier {
     final stopwatch = Stopwatch()..start();
 
     while (stableConnectionCount < requiredStableChecks &&
-           stopwatch.elapsed < maxWaitTime) {
+        stopwatch.elapsed < maxWaitTime) {
       final currentPeerCount = _gossipNode?.connectedPeers.length ?? 0;
 
       if (currentPeerCount == lastPeerCount) {
         stableConnectionCount++;
-        debugPrint('🔗 Peer count stable: $currentPeerCount (check $stableConnectionCount/$requiredStableChecks)');
+        debugPrint(
+            '🔗 Peer count stable: $currentPeerCount (check $stableConnectionCount/$requiredStableChecks)');
       } else {
         stableConnectionCount = 0; // Reset if peer count changed
         debugPrint('🔄 Peer count changed: $lastPeerCount → $currentPeerCount');
@@ -410,7 +421,8 @@ class GossipChatService extends ChangeNotifier {
     }
 
     final finalPeerCount = _gossipNode?.connectedPeers.length ?? 0;
-    debugPrint('✅ Connection stabilization complete. Connected to $finalPeerCount peer(s)');
+    debugPrint(
+        '✅ Connection stabilization complete. Connected to $finalPeerCount peer(s)');
   }
 
   /// Send join event to a specific newly connected peer

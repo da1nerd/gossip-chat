@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gossip_chat_demo/widgets/connection_debug_widget.dart';
 import 'package:provider/provider.dart';
 
 import '../services/gossip_chat_service.dart';
@@ -149,6 +150,7 @@ class _ChatScreenState extends State<ChatScreen> {
       endDrawer: const PeerListDrawer(),
       body: Column(
         children: [
+          const ConnectionDebugWidget(),
           // Connection status
           Consumer<GossipChatService>(
             builder: (context, chatService, child) {
