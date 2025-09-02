@@ -10,6 +10,7 @@ import '../models/chat_message.dart';
 import '../models/chat_peer.dart';
 import 'permissions_service.dart';
 
+/// This is a fully custom chat service that sends messages to all connected peers.
 class ChatService extends ChangeNotifier {
   static const String _userNameKey = 'user_name';
   static const String _userIdKey = 'user_id';

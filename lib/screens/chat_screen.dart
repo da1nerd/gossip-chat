@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gossip_chat_demo/widgets/connection_debug_widget.dart';
 import 'package:provider/provider.dart';
 
-import '../services/gossip_chat_service.dart';
+import '../services/simple_gossip_chat_service.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/peer_list_drawer.dart';
 
@@ -39,7 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final chatService = Provider.of<GossipChatService>(context, listen: false);
+      final chatService = Provider.of<SimpleGossipChatService>(context, listen: false);
       if (!chatService.isStarted) {
         await chatService.start();
       }
@@ -65,7 +65,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final content = _messageController.text.trim();
     if (content.isEmpty) return;
 
-    final chatService = Provider.of<GossipChatService>(context, listen: false);
+    final chatService = Provider.of<SimpleGossipChatService>(context, listen: false);
     chatService.sendMessage(content);
     _messageController.clear();
     _scrollToBottom();
@@ -87,7 +87,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Consumer<GossipChatService>(
+        title: Consumer<SimpleGossipChatService>(
           builder: (context, chatService, child) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,7 +106,7 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         actions: [
-          Consumer<GossipChatService>(
+          Consumer<SimpleGossipChatService>(
             builder: (context, chatService, child) {
               return IconButton(
                 icon: Stack(
@@ -152,7 +152,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           const ConnectionDebugWidget(),
           // Connection status
-          Consumer<GossipChatService>(
+          Consumer<SimpleGossipChatService>(
             builder: (context, chatService, child) {
               if (_isStarting) {
                 return Container(
@@ -271,7 +271,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
           // Messages list
           Expanded(
-            child: Consumer<GossipChatService>(
+            child: Consumer<SimpleGossipChatService>(
               builder: (context, chatService, child) {
                 if (chatService.messages.isEmpty) {
                   return Center(
@@ -371,7 +371,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Consumer<GossipChatService>(
+                  Consumer<SimpleGossipChatService>(
                     builder: (context, chatService, child) {
                       return FloatingActionButton(
                         mini: true,

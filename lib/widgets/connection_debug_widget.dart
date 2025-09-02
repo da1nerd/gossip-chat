@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/gossip_chat_service.dart';
+import '../services/simple_gossip_chat_service.dart';
 
 /// A debug widget that displays connection status and statistics.
 /// Useful for troubleshooting multi-device connection issues.
@@ -16,7 +16,7 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<GossipChatService>(
+    return Consumer<SimpleGossipChatService>(
       builder: (context, chatService, child) {
         final stats = chatService.connectionStats;
         final peerCount = chatService.peers.length;
@@ -48,7 +48,7 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
   }
 
   Widget _buildDetailedInfo(
-      Map<String, dynamic> stats, GossipChatService chatService) {
+      Map<String, dynamic> stats, SimpleGossipChatService chatService) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -210,7 +210,7 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
     setState(() {});
   }
 
-  void _showDetailedLog(GossipChatService chatService) {
+  void _showDetailedLog(SimpleGossipChatService chatService) {
     // This would show a detailed log dialog - you can implement based on your needs
     showDialog(
       context: context,
@@ -261,7 +261,7 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
     );
   }
 
-  Future<void> _syncHistoricalEvents(GossipChatService chatService) async {
+  Future<void> _syncHistoricalEvents(SimpleGossipChatService chatService) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -291,7 +291,7 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
   }
 
   Future<void> _syncHistoricalEventsToPeer(
-      GossipChatService chatService, String peerId) async {
+      SimpleGossipChatService chatService, String peerId) async {
     final peer = chatService.peers.firstWhere((p) => p.id == peerId);
     try {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -328,7 +328,7 @@ class ConnectionDebugFAB extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<GossipChatService>(
+    return Consumer<SimpleGossipChatService>(
       builder: (context, chatService, child) {
         final stats = chatService.connectionStats;
         final peerCount = chatService.peers.length;

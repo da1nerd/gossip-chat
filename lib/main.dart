@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/name_input_screen.dart';
-import 'services/gossip_chat_service.dart';
+import 'services/simple_gossip_chat_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,7 +14,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => GossipChatService(),
+      create: (context) => SimpleGossipChatService(),
       child: MaterialApp(
         title: 'Gossip Chat Demo',
         debugShowCheckedModeBanner: false,

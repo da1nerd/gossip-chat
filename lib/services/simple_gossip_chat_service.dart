@@ -9,20 +9,20 @@ import 'package:uuid/uuid.dart';
 import '../models/chat_events.dart';
 import '../models/chat_message.dart';
 import '../models/chat_peer.dart';
-import 'nearby_connections_transport.dart';
+import 'simple_nearby_connections_transport.dart';
 import 'permissions_service.dart';
 
 /// Chat service using the improved Gossip library with SimpleGossipNode.
 ///
 /// This service provides a clean, type-safe interface for chat functionality
 /// using the gossip protocol for event synchronization across devices.
-class GossipChatService extends ChangeNotifier {
+class SimpleGossipChatService extends ChangeNotifier {
   static const String _userNameKey = 'user_name';
   static const String _userIdKey = 'user_id';
   static const String _serviceId = 'com.example.gossip_chat_demo';
 
   SimpleGossipNode? _gossipNode;
-  NearbyConnectionsTransport? _transport;
+  SimpleNearbyConnectionsTransport? _transport;
   String? _userName;
   String? _userId;
 
@@ -81,7 +81,7 @@ class GossipChatService extends ChangeNotifier {
       debugPrint('✅ Typed events registered');
 
       // Create transport
-      _transport = NearbyConnectionsTransport(
+      _transport = SimpleNearbyConnectionsTransport(
         serviceId: _serviceId,
         userName: _userName!,
         connectionStrategy:

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../services/gossip_chat_service.dart';
+import '../services/simple_gossip_chat_service.dart';
 import 'chat_screen.dart';
 
 class NameInputScreen extends StatefulWidget {
@@ -24,7 +24,7 @@ class _NameInputScreenState extends State<NameInputScreen> {
 
     // Check if user already has a name set
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final chatService = Provider.of<GossipChatService>(context, listen: false);
+      final chatService = Provider.of<SimpleGossipChatService>(context, listen: false);
       if (chatService.userName?.isNotEmpty == true) {
         _nameController.text = chatService.userName!;
       }
@@ -61,7 +61,7 @@ class _NameInputScreenState extends State<NameInputScreen> {
     });
 
     try {
-      final chatService = Provider.of<GossipChatService>(context, listen: false);
+      final chatService = Provider.of<SimpleGossipChatService>(context, listen: false);
 
       // Set the username
       await chatService.setUserName(name);

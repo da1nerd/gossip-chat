@@ -9,7 +9,7 @@ import 'package:nearby_connections/nearby_connections.dart';
 ///
 /// This transport provides automatic peer discovery and connection management
 /// using Android's Nearby Connections API with Bluetooth and WiFi Direct.
-class NearbyConnectionsTransport implements SimpleGossipTransport {
+class SimpleNearbyConnectionsTransport implements SimpleGossipTransport {
   final String serviceId;
   final String userName;
 
@@ -31,7 +31,7 @@ class NearbyConnectionsTransport implements SimpleGossipTransport {
   // Connection strategy options
   final Strategy _connectionStrategy;
 
-  NearbyConnectionsTransport({
+  SimpleNearbyConnectionsTransport({
     required this.serviceId,
     required this.userName,
     Strategy connectionStrategy = Strategy.P2P_CLUSTER,
