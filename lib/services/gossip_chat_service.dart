@@ -66,6 +66,7 @@ class GossipChatService extends ChangeNotifier {
   final List<ChatMessage> _messages = [];
   final Map<String, ChatUser> _users = {};
   final Set<String> _processedEventIds = {};
+  final Map<String, String> _peerIdToUserIdMap = {};
 
   StreamSubscription<Event>? _eventCreatedSubscription;
   StreamSubscription<Event>? _eventReceivedSubscription;
@@ -230,6 +231,9 @@ class GossipChatService extends ChangeNotifier {
       // Stop gossip node
       await _gossipNode.stop();
 
+      // Clear peer mappings
+      _peerIdToUserIdMap.clear();
+
       _isStarted = false;
       _isInitialized = false;
       notifyListeners();
@@ -290,23 +294,32 @@ class GossipChatService extends ChangeNotifier {
     debugPrint('👋 Peer added: ${peer.id}');
     // Peer information will come through presence events
     // The gossip library will automatically sync all events including presence
+    // Note: peer.id is the transport endpoint ID, not the user ID
     notifyListeners();
   }
 
   void _handlePeerRemoved(GossipPeer peer) {
     debugPrint('👋 Peer removed: ${peer.id}');
 
-    // Mark user as offline
-    final user = _users[peer.id];
-    if (user != null) {
-      _users[peer.id] = user.copyWith(
-        isOnline: false,
-        lastSeen: DateTime.now(),
-      );
+    // Get the user ID from the endpoint ID mapping
+    final userId = _peerIdToUserIdMap[peer.id];
+    if (userId != null) {
+      final user = _users[userId];
+      if (user != null) {
+        _users[userId] = user.copyWith(
+          isOnline: false,
+          lastSeen: DateTime.now(),
+        );
+        debugPrint('👤 Marked user offline: ${user.name} (endpoint: ${peer.id}, user: $userId)');
+      }
+    } else {
+      debugPrint('⚠️ No user mapping found for endpoint: ${peer.id}');
     }
 
     notifyListeners();
   }
+
+
 
   void _processEvent(Event event, {required bool isLocal}) {
     // TODO: doesn't gossip already deal with duplicate events?
@@ -373,6 +386,14 @@ class GossipChatService extends ChangeNotifier {
         isOnline: isOnline,
         lastSeen: isOnline ? null : DateTime.now(),
       );
+
+      // Map the event's node ID to the user ID for peer removal handling
+      // The event.nodeId should correlate with a transport peer, but we need
+      // to find which endpoint ID corresponds to this node ID
+      if (userId != _userId) {
+        // TODO: this doesn't work because the event node id is the same as the user id.
+        _peerIdToUserIdMap[event.nodeId] = userId;
+      }
 
       debugPrint(
           '👤 ${wasNewUser ? 'Added new user' : 'Updated user presence'}: $userName (${isOnline ? 'online' : 'offline'})');

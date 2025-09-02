@@ -9,3 +9,4 @@
 - [ ] Create Kotlin version of gossip library.
 - [ ] Create gossip-flutter library for flutter utilities.
 - [ ] Support peers with different transport protocols.
+- [ ] Chat users should be added as soon as they are discovered instead of waiting for the next timer.
