@@ -279,6 +279,7 @@ class NearbyConnectionsTransport implements GossipTransport {
   void _handleIncomingDigest(String endpointId, Map<String, dynamic> json) {
     try {
       final digest = GossipDigest.fromJson(json['digest']);
+      final requestId = json['requestId'] as String?;
       final peer = _connectedPeers[endpointId];
 
       if (peer == null) {
@@ -289,7 +290,7 @@ class NearbyConnectionsTransport implements GossipTransport {
       final incomingDigest = IncomingDigest(
         fromPeer: peer,
         digest: digest,
-        respond: (response) => _sendDigestResponse(endpointId, response),
+        respond: (response) => _sendDigestResponse(endpointId, response, requestId),
       );
 
       _incomingDigestsController.add(incomingDigest);
@@ -355,16 +356,16 @@ class NearbyConnectionsTransport implements GossipTransport {
   }
 
   Future<void> _sendDigestResponse(
-      String endpointId, GossipDigestResponse response) async {
+      String endpointId, GossipDigestResponse response, String? requestId) async {
     try {
       final message = {
         'type': 'digest_response',
         'response': response.toJson(),
-        'requestId': _generateRequestId(),
+        'requestId': requestId,
       };
 
       await _sendMessage(endpointId, message);
-      debugPrint('📤 Sent digest response to $endpointId');
+      debugPrint('📤 Sent digest response to $endpointId for request $requestId');
     } catch (e) {
       debugPrint('❌ Failed to send digest response to $endpointId: $e');
       rethrow;
