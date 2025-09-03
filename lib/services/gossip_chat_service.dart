@@ -307,32 +307,43 @@ class GossipChatService extends ChangeNotifier {
     debugPrint('👋 Peer added: ${peer.id}');
     // Peer information will come through presence events
     // The gossip library will automatically sync all events including presence
-    // Note: peer.id is the transport endpoint ID, not the user ID
+
+    final ChatUser? user = _getUserByPeer(peer);
+    if (user != null) {
+      _users[user.id] = user.copyWith(
+        isOnline: peer.isActive,
+        lastSeen: DateTime.now(),
+      );
+      debugPrint(
+          '👤 Marked user online: ${user.name} (peer: ${peer.id}, user: ${user.id})');
+    }
+
     notifyListeners();
   }
 
   void _handlePeerRemoved(GossipPeer peer) {
     debugPrint('👋 Peer removed: ${peer.id}');
 
-    // Get the user ID from the peer ID mapping
-    final userId = _peerIdToUserIdMap[peer.id];
-    if (userId != null) {
-      final user = _users[userId];
-      if (user != null) {
-        _users[userId] = user.copyWith(
-          isOnline: false,
-          lastSeen: DateTime.now(),
-        );
-        debugPrint(
-            '👤 Marked user offline: ${user.name} (peer: ${peer.id}, user: $userId)');
-      }
-      // Remove the mapping since the peer is gone
-      _peerIdToUserIdMap.remove(peer.id);
-    } else {
-      debugPrint('⚠️ No user mapping found for peer: ${peer.id}');
+    final ChatUser? user = _getUserByPeer(peer);
+
+    if (user != null) {
+      _users[user.id] = user.copyWith(
+        isOnline: false,
+        lastSeen: DateTime.now(),
+      );
+      debugPrint(
+          '👤 Marked user offline: ${user.name} (peer: ${peer.id}, user: ${user.id})');
     }
 
     notifyListeners();
+  }
+
+  ChatUser? _getUserByPeer(GossipPeer peer) {
+    final userId = _peerIdToUserIdMap[peer.id];
+    if (userId != null) {
+      return _users[userId];
+    }
+    return null;
   }
 
   void _processEvent(Event event, {required bool isLocal}) {
