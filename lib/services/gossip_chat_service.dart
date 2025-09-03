@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:gossip/gossip.dart';
 import 'package:gossip_chat_demo/models/chat_message.dart';
 import 'package:gossip_chat_demo/models/chat_peer.dart';
+import 'package:gossip_chat_demo/services/shared_prefs_vector_clock_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -108,6 +109,7 @@ class GossipChatService extends ChangeNotifier {
       config: config,
       eventStore: MemoryEventStore(),
       transport: _transport,
+      vectorClockStore: SharedPrefsVectorClockStore(),
     );
 
     // Add ourselves as a user
