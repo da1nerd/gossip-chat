@@ -304,6 +304,9 @@ class GossipChatService extends ChangeNotifier {
     // Update user presence to online
     final ChatUser? user = _getUserByPeer(fromPeer);
     if (user != null && !user.isOnline) {
+      // TODO: eventually this should be handled by the presence events.
+      //  which won't need to use _getUserByPeer. That's only needed when a peer
+      //  disconnects without sending a presence event.
       _users[user.id] = user.copyWith(
         isOnline: true,
         lastSeen: DateTime.now(),
