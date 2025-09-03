@@ -1,0 +1,1 @@
+- Review and commit approved changes often because the AI will occasionally produce incorrect or incomplete code.

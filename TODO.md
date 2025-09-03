@@ -1,6 +1,10 @@
 # Things to do
-- [ ] Get nearby connection transport to properly start on initial install.
-- [ ] Sync entire chat history instead of just the new history.
+- [x] Get nearby connection transport to properly start on initial install.
+- [x] Sync entire chat history instead of just the new history.
+- [ ] Chat users should be added as soon as they are discovered instead of waiting for the next timer.
+- [ ] Update chat users that are coming back online, as online.
+- [ ] Reduce the amount of time between discovery and addition.
+- [ ] Support peers with different transport protocols.
 - [ ] Support syncing certain events to only certain peers.
 - [ ] Implement a mechanism for handling disconnections and reconnections gracefully.
 - [ ] Implement a mechanism for handling network errors and retries.
@@ -8,5 +12,4 @@
 - [ ] Refine the gossip library interface; keep it simple and efficient.
 - [ ] Create Kotlin version of gossip library.
 - [ ] Create gossip-flutter library for flutter utilities.
-- [ ] Support peers with different transport protocols.
-- [ ] Chat users should be added as soon as they are discovered instead of waiting for the next timer.
+- [ ] Create a gossip-nearby library for quick nearby connections support.
