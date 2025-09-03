@@ -412,14 +412,6 @@ class GossipChatService extends ChangeNotifier {
         lastSeen: isOnline ? null : DateTime.now(),
       );
 
-      // Map the event's node ID to the user ID for peer removal handling
-      // The event.nodeId should correlate with a transport peer, but we need
-      // to find which endpoint ID corresponds to this node ID
-      if (userId != _userId) {
-        // TODO: this doesn't work because the event node id is the same as the user id.
-        _peerIdToUserIdMap[event.nodeId] = userId;
-      }
-
       debugPrint(
           '👤 ${wasNewUser ? 'Added new user' : 'Updated user presence'}: $userName (${isOnline ? 'online' : 'offline'})');
       debugPrint(
