@@ -30,8 +30,6 @@ class NearbyConnectionsTransport implements GossipTransport {
       StreamController.broadcast();
   final StreamController<IncomingEvents> _incomingEventsController =
       StreamController.broadcast();
-  final StreamController<GossipPeer> _peerDisconnectionsController =
-      StreamController.broadcast();
 
   // Pending requests for the gossip protocol
   final Map<String, Completer<GossipDigestResponse>> _pendingDigestRequests =
@@ -154,18 +152,12 @@ class NearbyConnectionsTransport implements GossipTransport {
   void _onDisconnected(String id) {
     debugPrint('💔 Disconnected from peer $id');
 
-    // Capture peer before removing it
-    final disconnectedPeer = _connectedPeers.remove(id);
+    _connectedPeers.remove(id);
     _pendingConnections.remove(id);
     _connectionAttempts.remove(id);
 
     // Cancel any pending requests for this peer
     _cancelPendingRequestsForPeer(id);
-
-    // Notify about peer disconnection
-    if (disconnectedPeer != null) {
-      _peerDisconnectionsController.add(disconnectedPeer);
-    }
 
     debugPrint('📊 Remaining peers: ${_connectedPeers.length}');
   }
@@ -447,10 +439,6 @@ class NearbyConnectionsTransport implements GossipTransport {
   Stream<IncomingEvents> get incomingEvents => _incomingEventsController.stream;
 
   @override
-  Stream<GossipPeer> get peerDisconnections =>
-      _peerDisconnectionsController.stream;
-
-  @override
   Future<List<GossipPeer>> discoverPeers() async {
     if (!_initialized) {
       throw StateError('Transport not initialized');
@@ -587,7 +575,6 @@ class NearbyConnectionsTransport implements GossipTransport {
       // Close streams
       await _incomingDigestsController.close();
       await _incomingEventsController.close();
-      await _peerDisconnectionsController.close();
 
       // Clear state
       _connectedPeers.clear();
