@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gossip_chat_demo/services/gossip_chat_service.dart';
-import 'package:gossip_chat_demo/widgets/connection_debug_widget.dart';
+import 'package:gossip_chat_demo/widgets/expandable_connection_banner.dart';
 import 'package:provider/provider.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/peer_list_drawer.dart';
@@ -150,7 +150,7 @@ class _ChatScreenState extends State<ChatScreen> {
       endDrawer: const PeerListDrawer(),
       body: Column(
         children: [
-          // Connection status
+          // Connection status banners
           Consumer<GossipChatService>(
             builder: (context, chatService, child) {
               if (_isStarting) {
@@ -192,82 +192,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     ],
                   ),
                 );
-              } else if (!chatService.hasConnectedPeers) {
-                return Container(
-                  padding: const EdgeInsets.all(12),
-                  color: Colors.blue.shade50,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.wifi_find, color: Colors.blue.shade700),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Looking for nearby devices...',
-                              style: TextStyle(
-                                  color: Colors.blue.shade700,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Debug Status:',
-                        style: TextStyle(
-                            color: Colors.blue.shade700,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        '✓ Service Started: ${chatService.isStarted}',
-                        style: TextStyle(
-                            color: Colors.blue.shade600, fontSize: 11),
-                      ),
-                      Text(
-                        '✓ User: ${chatService.userName ?? "Unknown"}',
-                        style: TextStyle(
-                            color: Colors.blue.shade600, fontSize: 11),
-                      ),
-                      Text(
-                        '✓ Peers Found: ${chatService.connectedPeerCount}',
-                        style: TextStyle(
-                            color: Colors.blue.shade600, fontSize: 11),
-                      ),
-                      // if (chatService.hasConnectedPeers)
-                      //   ...chatService.peers.map((peer) => Text(
-                      //         '  - ${peer.name} (${peer.status.name})',
-                      //         style: TextStyle(
-                      //             color: Colors.blue.shade600, fontSize: 10),
-                      //       )),
-                      Text(
-                        '• Advertising your device to nearby phones',
-                        style: TextStyle(
-                            color: Colors.blue.shade600, fontSize: 11),
-                      ),
-                      Text(
-                        '• Scanning for other devices with this app',
-                        style: TextStyle(
-                            color: Colors.blue.shade600, fontSize: 11),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Make sure: Bluetooth ON, Location ON, other devices within 20m with app open',
-                        style: TextStyle(
-                            color: Colors.blue.shade600,
-                            fontSize: 10,
-                            fontStyle: FontStyle.italic),
-                      ),
-                    ],
-                  ),
-                );
+              } else {
+                return const ExpandableConnectionBanner();
               }
-              return const SizedBox.shrink();
             },
           ),
-
           // Messages list
           Expanded(
             child: Consumer<GossipChatService>(

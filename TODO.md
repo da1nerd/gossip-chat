@@ -1,8 +1,9 @@
 # Things to do
 - [x] Get nearby connection transport to properly start on initial install.
 - [x] Sync entire chat history instead of just the new history.
-- [ ] Chat users should be added as soon as they are discovered instead of waiting for the next timer.
+- [x] Chat users should be added as soon as they are discovered instead of waiting for the next timer.
 - [ ] Update chat users that are coming back online, as online.
+  - [ ] Fix the event sync. Presence events are not initially synced because they are created before connection finishes.
 - [ ] Reduce the amount of time between discovery and addition.
 - [ ] Support peers with different transport protocols.
 - [ ] Support syncing certain events to only certain peers.
