@@ -24,7 +24,8 @@ class _NameInputScreenState extends State<NameInputScreen> {
 
     // Check if user already has a name set
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final chatService = Provider.of<GossipChatService>(context, listen: false);
+      final chatService =
+          Provider.of<GossipChatService>(context, listen: false);
       if (chatService.userName?.isNotEmpty == true) {
         _nameController.text = chatService.userName!;
       }
@@ -61,7 +62,8 @@ class _NameInputScreenState extends State<NameInputScreen> {
     });
 
     try {
-      final chatService = Provider.of<GossipChatService>(context, listen: false);
+      final chatService =
+          Provider.of<GossipChatService>(context, listen: false);
 
       // Set the username
       chatService.setUserName(name);

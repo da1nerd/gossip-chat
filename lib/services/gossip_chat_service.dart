@@ -289,7 +289,8 @@ class GossipChatService extends ChangeNotifier {
     final event = receivedEvent.event;
     final fromPeer = receivedEvent.fromPeer;
 
-    debugPrint('📥 Remote event received: ${event.id} from peer: ${fromPeer.id}');
+    debugPrint(
+        '📥 Remote event received: ${event.id} from peer: ${fromPeer.id}');
 
     // Establish mapping between transport peer ID and user ID
     final userId = event.nodeId;
@@ -321,7 +322,8 @@ class GossipChatService extends ChangeNotifier {
           isOnline: false,
           lastSeen: DateTime.now(),
         );
-        debugPrint('👤 Marked user offline: ${user.name} (peer: ${peer.id}, user: $userId)');
+        debugPrint(
+            '👤 Marked user offline: ${user.name} (peer: ${peer.id}, user: $userId)');
       }
       // Remove the mapping since the peer is gone
       _peerIdToUserIdMap.remove(peer.id);
@@ -331,8 +333,6 @@ class GossipChatService extends ChangeNotifier {
 
     notifyListeners();
   }
-
-
 
   void _processEvent(Event event, {required bool isLocal}) {
     // TODO: doesn't gossip already deal with duplicate events?

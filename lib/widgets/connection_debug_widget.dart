@@ -30,7 +30,7 @@ class _ConnectionDebugWidgetState extends State<ConnectionDebugWidget> {
                   Icons.network_check,
                   color: _getConnectionStatusColor(stats),
                 ),
-                title: Text('Connection Debug'),
+                title: const Text('Connection Debug'),
                 subtitle: Text(
                     'Peers: $peerCount | Status: ${_getConnectionStatusText(stats)}'),
                 trailing: IconButton(

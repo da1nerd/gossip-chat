@@ -299,7 +299,8 @@ class NearbyConnectionsTransport implements GossipTransport {
       final incomingDigest = IncomingDigest(
         fromPeer: peer,
         digest: digest,
-        respond: (response) => _sendDigestResponse(endpointId, response, requestId),
+        respond: (response) =>
+            _sendDigestResponse(endpointId, response, requestId),
       );
 
       _incomingDigestsController.add(incomingDigest);
@@ -364,8 +365,8 @@ class NearbyConnectionsTransport implements GossipTransport {
     }
   }
 
-  Future<void> _sendDigestResponse(
-      String endpointId, GossipDigestResponse response, String? requestId) async {
+  Future<void> _sendDigestResponse(String endpointId,
+      GossipDigestResponse response, String? requestId) async {
     try {
       final message = {
         'type': 'digest_response',
@@ -374,7 +375,8 @@ class NearbyConnectionsTransport implements GossipTransport {
       };
 
       await _sendMessage(endpointId, message);
-      debugPrint('📤 Sent digest response to $endpointId for request $requestId');
+      debugPrint(
+          '📤 Sent digest response to $endpointId for request $requestId');
     } catch (e) {
       debugPrint('❌ Failed to send digest response to $endpointId: $e');
       rethrow;
@@ -445,7 +447,8 @@ class NearbyConnectionsTransport implements GossipTransport {
   Stream<IncomingEvents> get incomingEvents => _incomingEventsController.stream;
 
   @override
-  Stream<GossipPeer> get peerDisconnections => _peerDisconnectionsController.stream;
+  Stream<GossipPeer> get peerDisconnections =>
+      _peerDisconnectionsController.stream;
 
   @override
   Future<List<GossipPeer>> discoverPeers() async {
@@ -560,12 +563,14 @@ class NearbyConnectionsTransport implements GossipTransport {
 
       // Cancel all pending requests
       for (final completer in _pendingDigestRequests.values) {
-        completer.completeError(TransportException('Transport shutting down'));
+        completer
+            .completeError(const TransportException('Transport shutting down'));
       }
       _pendingDigestRequests.clear();
 
       for (final completer in _pendingEventRequests.values) {
-        completer.completeError(TransportException('Transport shutting down'));
+        completer
+            .completeError(const TransportException('Transport shutting down'));
       }
       _pendingEventRequests.clear();
 
@@ -639,10 +644,10 @@ class NearbyConnectionsTransport implements GossipTransport {
 
     if (_connectedPeers.isNotEmpty) {
       buffer.writeln('\nConnected Peers:');
-      _connectedPeers.values.forEach((peer) {
+      for (var peer in _connectedPeers.values) {
         buffer.writeln(
             '  • ${peer.id} (${peer.isActive ? "active" : "inactive"})');
-      });
+      }
     }
 
     if (_pendingConnections.isNotEmpty) {

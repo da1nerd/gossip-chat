@@ -38,7 +38,8 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final chatService = Provider.of<GossipChatService>(context, listen: false);
+      final chatService =
+          Provider.of<GossipChatService>(context, listen: false);
       if (!chatService.isStarted) {
         await chatService.start();
       }
