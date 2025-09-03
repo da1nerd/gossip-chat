@@ -150,7 +150,6 @@ class _ChatScreenState extends State<ChatScreen> {
       endDrawer: const PeerListDrawer(),
       body: Column(
         children: [
-          const ConnectionDebugWidget(),
           // Connection status
           Consumer<GossipChatService>(
             builder: (context, chatService, child) {

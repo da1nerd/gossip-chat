@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gossip_chat_demo/services/gossip_chat_service.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'chat_screen.dart';
 
@@ -12,6 +13,7 @@ class NameInputScreen extends StatefulWidget {
 }
 
 class _NameInputScreenState extends State<NameInputScreen> {
+  static const String _userNameKey = 'user_name';
   final TextEditingController _nameController = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
   bool _isLoading = false;
@@ -21,15 +23,20 @@ class _NameInputScreenState extends State<NameInputScreen> {
   void initState() {
     super.initState();
     _nameFocus.requestFocus();
+    _loadSavedName();
+  }
 
-    // Check if user already has a name set
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final chatService =
-          Provider.of<GossipChatService>(context, listen: false);
-      if (chatService.userName?.isNotEmpty == true) {
-        _nameController.text = chatService.userName!;
+  Future<void> _loadSavedName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedName = prefs.getString(_userNameKey);
+      if (savedName != null && savedName.isNotEmpty) {
+        _nameController.text = savedName;
       }
-    });
+    } catch (e) {
+      // If loading fails, just continue with empty field
+      debugPrint('Failed to load saved name: $e');
+    }
   }
 
   @override

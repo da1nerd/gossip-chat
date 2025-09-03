@@ -101,6 +101,7 @@ class GossipChatService extends ChangeNotifier {
       maxEventsPerMessage: 50,
       enableAntiEntropy: true,
       antiEntropyInterval: const Duration(minutes: 2),
+      peerDiscoveryInterval: const Duration(seconds: 1),
     );
 
     _gossipNode = GossipNode(
