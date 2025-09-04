@@ -13,6 +13,8 @@ dependencies:
 
   gossip:
     path: ../gossip
+  gossip_typed_events:
+    path: ../gossip_typed_events
   nearby_connections: ^4.3.0
   permission_handler: ^11.3.1
   location: ^5.0.3

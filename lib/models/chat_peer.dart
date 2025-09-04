@@ -4,6 +4,8 @@ class ChatPeer {
   final String? address;
   final DateTime connectedAt;
   final ChatPeerStatus status;
+  final bool isOnline;
+  final DateTime? lastSeen;
 
   ChatPeer({
     required this.id,
@@ -11,6 +13,8 @@ class ChatPeer {
     this.address,
     DateTime? connectedAt,
     this.status = ChatPeerStatus.connected,
+    this.isOnline = true,
+    this.lastSeen,
   }) : connectedAt = connectedAt ?? DateTime.now();
 
   factory ChatPeer.fromJson(Map<String, dynamic> json) {
@@ -24,6 +28,10 @@ class ChatPeer {
         (e) => e.name == json['status'],
         orElse: () => ChatPeerStatus.connected,
       ),
+      isOnline: json['isOnline'] as bool? ?? true,
+      lastSeen: json['lastSeen'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['lastSeen'] as int)
+          : null,
     );
   }
 
@@ -34,6 +42,8 @@ class ChatPeer {
       'address': address,
       'connectedAt': connectedAt.millisecondsSinceEpoch,
       'status': status.name,
+      'isOnline': isOnline,
+      'lastSeen': lastSeen?.millisecondsSinceEpoch,
     };
   }
 
@@ -43,6 +53,8 @@ class ChatPeer {
     String? address,
     DateTime? connectedAt,
     ChatPeerStatus? status,
+    bool? isOnline,
+    DateTime? lastSeen,
   }) {
     return ChatPeer(
       id: id ?? this.id,
@@ -50,6 +62,8 @@ class ChatPeer {
       address: address ?? this.address,
       connectedAt: connectedAt ?? this.connectedAt,
       status: status ?? this.status,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeen: lastSeen ?? this.lastSeen,
     );
   }
 
@@ -63,7 +77,7 @@ class ChatPeer {
 
   @override
   String toString() {
-    return 'ChatPeer{id: $id, name: $name, address: $address, status: $status}';
+    return 'ChatPeer{id: $id, name: $name, address: $address, status: $status, isOnline: $isOnline, lastSeen: $lastSeen}';
   }
 }
 
