@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gossip/gossip.dart';
-import 'package:gossip_chat_demo/services/event_sourcing/event_sourcing.dart';
+import 'package:gossip_event_sourcing/gossip_event_sourcing.dart';
+import 'package:gossip_chat_demo/services/event_sourcing/projections/chat_projection.dart';
 import 'package:gossip_chat_demo/models/chat_events.dart';
 import 'package:gossip_typed_events/gossip_typed_events.dart';
 

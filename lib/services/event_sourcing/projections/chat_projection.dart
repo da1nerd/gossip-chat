@@ -1,14 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:gossip/gossip.dart';
 import 'package:gossip_typed_events/gossip_typed_events.dart';
+import 'package:gossip_event_sourcing/gossip_event_sourcing.dart';
 import '../../../models/chat_message.dart';
 import '../../../models/chat_peer.dart';
 import '../../../models/chat_events.dart';
-import 'projection.dart';
 
 /// Projection that maintains the chat state (messages and users)
 /// This is the main read model for the chat UI
-class ChatProjection extends Projection with ProjectionChangeNotifier {
+class ChatProjection extends Projection with ChangeNotifier {
   final List<ChatMessage> _messages = [];
   final Map<String, ChatPeer> _users = {};
 
@@ -388,9 +388,75 @@ class ChatProjection extends Projection with ProjectionChangeNotifier {
   }
 
   @override
+  String get stateVersion => '1.0.0';
+
+  @override
+  Future<bool> restoreState(Map<String, dynamic> state) async {
+    try {
+      debugPrint('🔄 ChatProjection: Restoring state from projection store');
+
+      // Reset to initial state first
+      await reset();
+
+      // Restore messages
+      final messagesData = state['messages'] as List?;
+      if (messagesData != null) {
+        for (final messageData in messagesData) {
+          final messageMap = messageData as Map<String, dynamic>;
+          final message = ChatMessage(
+            id: messageMap['id'] as String,
+            senderId: messageMap['senderId'] as String,
+            senderName: messageMap['senderName'] as String,
+            content: messageMap['content'] as String,
+            timestamp: DateTime.parse(messageMap['timestamp'] as String),
+            replyToId: messageMap['replyToId'] as String?,
+          );
+          _messages.add(message);
+        }
+        _sortMessages();
+      }
+
+      // Restore users
+      final usersData = state['users'] as Map<String, dynamic>?;
+      if (usersData != null) {
+        _users.clear();
+        for (final entry in usersData.entries) {
+          final userData = entry.value as Map<String, dynamic>;
+          final user = ChatPeer(
+            id: userData['id'] as String,
+            name: userData['name'] as String,
+            isOnline: userData['isOnline'] as bool,
+            lastSeen: userData['lastSeen'] != null
+                ? DateTime.parse(userData['lastSeen'] as String)
+                : null,
+          );
+          _users[entry.key] = user;
+        }
+      }
+
+      debugPrint(
+        '✅ ChatProjection: State restored successfully '
+        '(${_messages.length} messages, ${_users.length} users)',
+      );
+
+      // Notify listeners of the restored state
+      notifyListeners();
+
+      return true;
+    } catch (e, stackTrace) {
+      debugPrint('❌ ChatProjection: Failed to restore state: $e');
+      debugPrint(stackTrace.toString());
+
+      // Reset to clean state on failure
+      await reset();
+      return false;
+    }
+  }
+
+  @override
   void dispose() {
-    super.dispose();
     _messages.clear();
     _users.clear();
+    super.dispose();
   }
 }

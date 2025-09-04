@@ -6,8 +6,10 @@ import 'package:gossip_chat_demo/models/chat_message.dart';
 import 'package:gossip_chat_demo/models/chat_peer.dart';
 import 'package:gossip_chat_demo/services/shared_prefs_vector_clock_store.dart';
 import 'package:gossip_chat_demo/services/hive_event_store.dart';
-import 'package:gossip_chat_demo/services/event_sourcing/event_sourcing.dart';
+import 'package:gossip_chat_demo/services/hive_projection_store.dart';
+import 'package:gossip_chat_demo/services/event_sourcing/projections/chat_projection.dart';
 import 'package:gossip_chat_demo/models/chat_events.dart';
+import 'package:gossip_event_sourcing/gossip_event_sourcing.dart';
 import 'package:gossip_typed_events/gossip_typed_events.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -67,6 +69,7 @@ class GossipChatService extends ChangeNotifier {
   late final NearbyConnectionsTransport _transport;
   late final GossipNode _gossipNode;
   late final HiveEventStore _eventStore;
+  late final HiveProjectionStore _projectionStore;
 
   // Event Sourcing components
   late final EventProcessor _eventProcessor;
@@ -90,12 +93,6 @@ class GossipChatService extends ChangeNotifier {
   }
 
   void _setupEventSourcing() {
-    _eventProcessor = EventProcessor();
-    _chatProjection = ChatProjection();
-
-    // Register projection with processor
-    _eventProcessor.registerProjection(_chatProjection);
-
     // Listen to projection changes and notify UI
     _chatProjection.addListener(() {
       notifyListeners();
@@ -110,7 +107,7 @@ class GossipChatService extends ChangeNotifier {
     debugPrint('✅ Typed events registered');
   }
 
-  void _initializeComponents() {
+  Future<void> _initializeComponents() async {
     if (_userId == null || _userName == null) {
       throw StateError(
           'User ID and name must be set before initializing components');
@@ -125,6 +122,26 @@ class GossipChatService extends ChangeNotifier {
 
     // Create event store
     _eventStore = HiveEventStore();
+
+    // Create projection store (optional performance optimization)
+    _projectionStore = HiveProjectionStore();
+    await _projectionStore.initialize();
+
+    // Create event processor with projection store support
+    _eventProcessor = EventProcessor(
+      projectionStore: _projectionStore,
+      storeConfig: const ProjectionStoreConfig(
+        autoSaveEnabled: true,
+        autoSaveInterval: 100, // Save every 100 events
+        saveAfterBatch: true,
+        loadOnRebuild: true,
+      ),
+      logger: debugPrint,
+    );
+
+    // Create and register projections
+    _chatProjection = ChatProjection();
+    _eventProcessor.registerProjection(_chatProjection);
 
     // Create gossip node with chat-optimized configuration
     final config = GossipConfig(
@@ -193,7 +210,7 @@ class GossipChatService extends ChangeNotifier {
       _error = null;
 
       // Initialize components now that we have user info
-      _initializeComponents();
+      await _initializeComponents();
 
       // Initialize the event store
       await _eventStore.initialize();
@@ -293,6 +310,9 @@ class GossipChatService extends ChangeNotifier {
 
       // Close event store
       await _eventStore.close();
+
+      // Close projection store
+      await _projectionStore.close();
 
       // Clear peer mappings
       _peerIdToUserIdMap.clear();
@@ -617,6 +637,51 @@ class GossipChatService extends ChangeNotifier {
 
     debugPrint('👤 Loaded user: $_userName ($_userId)');
   }
+
+  /// Save current projection states to persistent storage
+  /// This can improve startup performance for future app launches
+  Future<void> saveProjectionStates() async {
+    if (!_isInitialized) {
+      throw StateError(
+          'Service must be initialized before saving projection states');
+    }
+
+    try {
+      await _eventProcessor.saveAllProjectionStates();
+      debugPrint('✅ Projection states saved successfully');
+    } catch (e) {
+      debugPrint('❌ Error saving projection states: $e');
+      rethrow;
+    }
+  }
+
+  /// Clear all saved projection states
+  /// Forces full event replay on next startup
+  Future<void> clearSavedProjectionStates() async {
+    if (!_isInitialized) {
+      throw StateError(
+          'Service must be initialized before clearing projection states');
+    }
+
+    try {
+      await _eventProcessor.clearSavedProjectionStates();
+      debugPrint('✅ Saved projection states cleared');
+    } catch (e) {
+      debugPrint('❌ Error clearing saved projection states: $e');
+      rethrow;
+    }
+  }
+
+  /// Get statistics about the projection store
+  ProjectionStoreStats? getProjectionStoreStats() {
+    if (!_isInitialized) {
+      return null;
+    }
+    return _eventProcessor.getProjectionStoreStats();
+  }
+
+  /// Check if projection store is available and enabled
+  bool get hasProjectionStore => _eventProcessor.hasProjectionStore;
 
   @override
   void dispose() {
