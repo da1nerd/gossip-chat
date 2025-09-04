@@ -144,7 +144,8 @@ class SharedPrefsVectorClockStore implements VectorClockStore {
 
   void _checkNotClosed() {
     if (_isClosed) {
-      throw const VectorClockStoreException('Vector clock store has been closed');
+      throw const VectorClockStoreException(
+          'Vector clock store has been closed');
     }
   }
 }
