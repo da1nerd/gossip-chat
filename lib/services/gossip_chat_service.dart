@@ -6,6 +6,7 @@ import 'package:gossip/gossip.dart';
 import 'package:gossip_chat_demo/models/chat_message.dart';
 import 'package:gossip_chat_demo/models/chat_peer.dart';
 import 'package:gossip_chat_demo/services/shared_prefs_vector_clock_store.dart';
+import 'package:gossip_chat_demo/services/hive_event_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -63,6 +64,7 @@ class GossipChatService extends ChangeNotifier {
   String? _userName;
   late final NearbyConnectionsTransport _transport;
   late final GossipNode _gossipNode;
+  late final HiveEventStore _eventStore;
 
   final List<ChatMessage> _messages = [];
   final Map<String, ChatUser> _users = {};
@@ -93,6 +95,9 @@ class GossipChatService extends ChangeNotifier {
       nodeId: _userId!,
     );
 
+    // Create event store
+    _eventStore = HiveEventStore();
+
     // Create gossip node with chat-optimized configuration
     final config = GossipConfig(
       nodeId: _userId!,
@@ -107,7 +112,7 @@ class GossipChatService extends ChangeNotifier {
 
     _gossipNode = GossipNode(
       config: config,
-      eventStore: MemoryEventStore(),
+      eventStore: _eventStore,
       transport: _transport,
       vectorClockStore: SharedPrefsVectorClockStore(),
     );
@@ -166,6 +171,9 @@ class GossipChatService extends ChangeNotifier {
 
       // Initialize components now that we have user info
       _initializeComponents();
+
+      // Initialize the event store
+      await _eventStore.initialize();
 
       // Set up event listeners before starting the node
       _setupEventListeners();
@@ -233,6 +241,9 @@ class GossipChatService extends ChangeNotifier {
 
       // Stop gossip node
       await _gossipNode.stop();
+
+      // Close event store
+      await _eventStore.close();
 
       // Clear peer mappings
       _peerIdToUserIdMap.clear();

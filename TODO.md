@@ -3,7 +3,7 @@
 - [x] Sync entire chat history instead of just the new history.
 - [x] Chat users should be added as soon as they are discovered instead of waiting for the next timer.
 - Update chat users that are coming back online, as online.
-  - [ ] Implement a clock store so we don't break syncing.
+  - [x] Implement a clock store so we don't break syncing.
 - [ ] Reduce the amount of time between discovery and addition.
 - [ ] Support peers with different transport protocols.
 - [ ] Support syncing certain events to only certain peers.
