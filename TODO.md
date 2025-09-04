@@ -14,4 +14,5 @@
 - [ ] Create Kotlin version of gossip library.
 - [ ] Create gossip-flutter library for flutter utilities.
 - [ ] Create a gossip-nearby library for quick nearby connections support.
-- [ ] Make sure typed events are optional for all gossip libraries. (all libraries for that matter)
+- [x] Make sure typed events are optional for all gossip libraries. (all libraries for that matter)
+- [ ] Turn typed events into proper Hive objects for faster storage performance.

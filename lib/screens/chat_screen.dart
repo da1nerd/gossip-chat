@@ -3,7 +3,7 @@ import 'package:gossip_chat_demo/services/gossip_chat_service.dart';
 import 'package:gossip_chat_demo/widgets/expandable_connection_banner.dart';
 import 'package:provider/provider.dart';
 import '../widgets/message_bubble.dart';
-import '../widgets/peer_list_drawer.dart';
+import '../widgets/user_list_drawer.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -147,7 +147,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      endDrawer: const PeerListDrawer(),
+      endDrawer: const UserListDrawer(),
       body: Column(
         children: [
           // Connection status banners

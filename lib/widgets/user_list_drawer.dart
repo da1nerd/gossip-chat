@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/chat_peer.dart';
 import '../services/gossip_chat_service.dart';
 
-class PeerListDrawer extends StatelessWidget {
-  const PeerListDrawer({super.key});
+class UserListDrawer extends StatelessWidget {
+  const UserListDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +26,7 @@ class PeerListDrawer extends StatelessWidget {
                 ),
                 SizedBox(height: 16),
                 Text(
-                  'Connected Peers',
+                  'Connected Users',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -40,7 +39,7 @@ class PeerListDrawer extends StatelessWidget {
           Expanded(
             child: Consumer<GossipChatService>(
               builder: (context, chatService, child) {
-                if (chatService.peers.isEmpty) {
+                if (chatService.users.isEmpty) {
                   return const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -52,7 +51,7 @@ class PeerListDrawer extends StatelessWidget {
                         ),
                         SizedBox(height: 16),
                         Text(
-                          'No peers connected',
+                          'No users connected',
                           style: TextStyle(
                             fontSize: 18,
                             color: Colors.grey,
@@ -77,10 +76,10 @@ class PeerListDrawer extends StatelessWidget {
 
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: chatService.peers.length,
+                  itemCount: chatService.users.length,
                   itemBuilder: (context, index) {
-                    final peer = chatService.peers[index];
-                    return PeerTile(peer: peer);
+                    final user = chatService.users[index];
+                    return UserTile(user: user);
                   },
                 );
               },
@@ -164,12 +163,12 @@ class PeerListDrawer extends StatelessWidget {
   }
 }
 
-class PeerTile extends StatelessWidget {
-  final ChatPeer peer;
+class UserTile extends StatelessWidget {
+  final ChatUser user;
 
-  const PeerTile({
+  const UserTile({
     super.key,
-    required this.peer,
+    required this.user,
   });
 
   @override
@@ -184,7 +183,7 @@ class PeerTile extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            _getInitials(peer.name),
+            _getInitials(user.name),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 14,
@@ -194,7 +193,7 @@ class PeerTile extends StatelessWidget {
         ),
       ),
       title: Text(
-        peer.name,
+        user.name,
         style: const TextStyle(
           fontWeight: FontWeight.w500,
         ),
@@ -222,28 +221,28 @@ class PeerTile extends StatelessWidget {
   }
 
   Color _getStatusColor() {
-    switch (peer.status) {
-      case ChatPeerStatus.connected:
-        return Colors.green;
-      case ChatPeerStatus.connecting:
-        return Colors.orange;
-      case ChatPeerStatus.disconnected:
-        return Colors.grey;
-      case ChatPeerStatus.failed:
-        return Colors.red;
-    }
+    return user.isOnline ? Colors.green : Colors.grey;
   }
 
   String _getStatusText() {
-    switch (peer.status) {
-      case ChatPeerStatus.connected:
-        return 'Connected';
-      case ChatPeerStatus.connecting:
-        return 'Connecting...';
-      case ChatPeerStatus.disconnected:
-        return 'Disconnected';
-      case ChatPeerStatus.failed:
-        return 'Connection failed';
+    if (user.isOnline) {
+      return 'Online';
+    } else {
+      if (user.lastSeen != null) {
+        final now = DateTime.now();
+        final difference = now.difference(user.lastSeen!);
+        if (difference.inMinutes < 1) {
+          return 'Last seen just now';
+        } else if (difference.inHours < 1) {
+          return 'Last seen ${difference.inMinutes}m ago';
+        } else if (difference.inDays < 1) {
+          return 'Last seen ${difference.inHours}h ago';
+        } else {
+          return 'Last seen ${difference.inDays}d ago';
+        }
+      } else {
+        return 'Offline';
+      }
     }
   }
 }

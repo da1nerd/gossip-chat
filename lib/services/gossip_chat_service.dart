@@ -378,6 +378,7 @@ class GossipChatService extends ChangeNotifier {
 
     // Establish mapping between transport peer ID and user ID.
     // This allows us to correlate ChatPeer with GossipPeer.
+    // TODO: will this still work with the new event processor?
     final userId = event.nodeId;
     if (userId != _userId && !_peerIdToUserIdMap.containsKey(fromPeer.id)) {
       _peerIdToUserIdMap[fromPeer.id] = userId;
@@ -560,20 +561,6 @@ class GossipChatService extends ChangeNotifier {
 
   /// Get connection statistics for debugging (compatibility with SimpleGossipChatService)
   Map<String, dynamic> get connectionStats => getConnectionStats();
-
-  /// Get peers as ChatPeer objects for UI compatibility
-  List<ChatPeer> get peers {
-    return users
-        .map((user) => ChatPeer(
-              id: user.id,
-              name: user.name,
-              status: user.isOnline
-                  ? ChatPeerStatus.connected
-                  : ChatPeerStatus.disconnected,
-              connectedAt: DateTime.now(),
-            ))
-        .toList();
-  }
 
   /// Clear the current error.
   void clearError() {
